@@ -19,8 +19,29 @@ gulp.task('scripts', function () {
 	});`;
 
 	var parentHeader = `(function (root) {
-	var modules = {};
-	var global = {};
+	var modules = {}, global = {}, resolveds = {};
+
+	var require = global.require = function (moduleName) {
+		var moduleObj = (root[moduleName] || modules[moduleName]);
+    var exports, module = {};
+
+    module.exports = exports = {};
+
+    if(typeof moduleObj === 'undefined') {
+    	throw new Error('module named ' + moduleName + ' does not exist');
+    }
+
+		if((typeof resolveds[moduleName]) === 'undefined') {
+			moduleObj.apply(moduleObj, [require, module, exports, './', "` + '${filename}' + `", process, global]);
+
+			moduleObj = modules[moduleName] = root[moduleName] = module.exports;
+
+			resolveds[moduleName] = true;
+		}
+
+		return moduleObj;
+	};
+
 	var process = global.process = {
 		platform: 'unix',
 		_setupDomainUse: function () {},
@@ -43,6 +64,10 @@ gulp.task('scripts', function () {
 		pid: 12345,
 		binding: function () {
 			throw new Error('process.binding is not supported');
+		},
+		cwd: function () {
+
+			return window.location.href;
 		}
 	};
 
@@ -50,24 +75,6 @@ gulp.task('scripts', function () {
 		modules[moduleName] = fn(root);
 	}
 
-	var require = global.require = function (moduleName) {
-		var moduleObj = (root[moduleName] || modules[moduleName]);
-    var exports, module = {};
-
-    module.exports = exports = {};
-
-    if(typeof moduleObj === 'undefined') {
-    	throw new Error('module named ' + moduleName + ' does not exist');
-    }
-
-		if(typeof moduleObj === 'function') {
-			moduleObj.apply(moduleObj, [require, module, exports, './', "` + '${filename}' + `", process, global]);
-
-			moduleObj = modules[moduleName] = root[moduleName] = (module.exports || exports);
-		}
-
-		return moduleObj;
-	};
 	var init = function () {
 		Object.keys(modules).forEach(require, this);
 	};`;
@@ -93,6 +100,13 @@ gulp.task('scripts', function () {
 			footer: parentFooter
 		}))
 		.pipe(uglify({
+			mangle: false,
+			output: {
+				beautify: true
+			}
+		}))
+		.pipe(gulp.dest('dist'))
+		.pipe(uglify({
 			compress: {
 				unsafe: true,
 				dead_code: true,
@@ -102,13 +116,6 @@ gulp.task('scripts', function () {
 		.pipe(rename({
 			suffix: '.min'
 		}))
-		.pipe(gulp.dest('dist'))
-		.pipe(uglify({
-			output: {
-				beautify: true
-			}
-		}))
-		.pipe(rename('all.js'))
 		.pipe(gulp.dest('dist'));
 });
 

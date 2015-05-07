@@ -1,8 +1,14 @@
-!function(t) {
-    function e(e, r) {
-        n[e] = r(t);
+!function(root) {
+    function define(moduleName, fn) {
+        modules[moduleName] = fn(root);
     }
-    var n = {}, r = {}, s = r.process = {
+    var modules = {}, global = {}, resolveds = {}, require = global.require = function(moduleName) {
+        var exports, moduleObj = root[moduleName] || modules[moduleName], module = {};
+        if (module.exports = exports = {}, "undefined" == typeof moduleObj) throw new Error("module named " + moduleName + " does not exist");
+        return "undefined" == typeof resolveds[moduleName] && (moduleObj.apply(moduleObj, [ require, module, exports, "./", "all.js", process, global ]), 
+        moduleObj = modules[moduleName] = root[moduleName] = module.exports, resolveds[moduleName] = !0), 
+        moduleObj;
+    }, process = global.process = {
         platform: "unix",
         _setupDomainUse: function() {},
         stderr: {
@@ -23,569 +29,616 @@
         },
         pid: 12345,
         binding: function() {
-            throw Error("process.binding is not supported");
+            throw new Error("process.binding is not supported");
+        },
+        cwd: function() {
+            return window.location.href;
         }
-    }, i = r.require = function(e) {
-        var o, a = t[e] || n[e], u = {};
-        if (u.exports = o = {}, void 0 === a) throw Error("module named " + e + " does not exist");
-        return "function" == typeof a && (a.apply(a, [ i, u, o, "./", "all.js", s, r ]), 
-        a = n[e] = t[e] = u.exports || o), a;
-    }, o = function() {
-        Object.keys(n).forEach(i, this);
+    }, init = function() {
+        Object.keys(modules).forEach(require, this);
     };
-    e("domain", function() {
-        return function(t, e, n, r, s, i) {
+    define("domain", function(root) {
+        return function(require, module, exports, __dirname, __filename, process, global) {
             "use strict";
-            function o() {
-                p.call(this), this.members = [];
+            function Domain() {
+                EventEmitter.call(this), this.members = [];
             }
-            function a(t, e, n, r) {
-                var s, i, o, a;
-                if (!e._disposed) {
-                    if (r[0] && r[0] instanceof Error) return s = r[0], f._extend(s, {
-                        domainBound: n,
-                        domainThrown: !1,
-                        domain: e
-                    }), void e.emit("error", s);
-                    if (i = [], e.enter(), r.length > 1) {
-                        for (o = 1; o < r.length; o++) i.push(r[o]);
-                        a = n.apply(t, i);
-                    } else a = n.call(t);
-                    return e.exit(), a;
+            function intercepted(_this, self, cb, fnargs) {
+                if (!self._disposed) {
+                    if (fnargs[0] && fnargs[0] instanceof Error) {
+                        var er = fnargs[0];
+                        return util._extend(er, {
+                            domainBound: cb,
+                            domainThrown: !1,
+                            domain: self
+                        }), void self.emit("error", er);
+                    }
+                    var i, ret, args = [];
+                    if (self.enter(), fnargs.length > 1) {
+                        for (i = 1; i < fnargs.length; i++) args.push(fnargs[i]);
+                        ret = cb.apply(_this, args);
+                    } else ret = cb.call(_this);
+                    return self.exit(), ret;
                 }
             }
-            function u(t, e, n, r) {
-                if (!e._disposed) {
-                    var s;
-                    return e.enter(), s = r.length > 0 ? n.apply(t, r) : n.call(t), e.exit(), s;
+            function bound(_this, self, cb, fnargs) {
+                if (!self._disposed) {
+                    var ret;
+                    return self.enter(), ret = fnargs.length > 0 ? cb.apply(_this, fnargs) : cb.call(_this), 
+                    self.exit(), ret;
                 }
             }
-            var h, c, l, f = t("util"), p = t("events"), m = f.inherits;
-            p.usingDomains = !0, h = [ null ], Object.defineProperty(i, "domain", {
+            var util = require("util"), EventEmitter = require("events"), inherits = util.inherits;
+            EventEmitter.usingDomains = !0;
+            var _domain = [ null ];
+            Object.defineProperty(process, "domain", {
                 enumerable: !0,
                 get: function() {
-                    return h[0];
+                    return _domain[0];
                 },
-                set: function(t) {
-                    return h[0] = t;
+                set: function(arg) {
+                    return _domain[0] = arg;
                 }
-            }), c = {}, i._setupDomainUse(h, c), n.Domain = o, n.create = n.createDomain = function() {
-                return new o();
-            }, l = [], n._stack = l, n.active = null, m(o, p), o.prototype.members = void 0, 
-            o.prototype._disposed = void 0, o.prototype._errorHandler = function(t) {
-                var e = !1;
+            });
+            var _domain_flag = {};
+            process._setupDomainUse(_domain, _domain_flag), exports.Domain = Domain, exports.create = exports.createDomain = function() {
+                return new Domain();
+            };
+            var stack = [];
+            exports._stack = stack, exports.active = null, inherits(Domain, EventEmitter), Domain.prototype.members = void 0, 
+            Domain.prototype._disposed = void 0, Domain.prototype._errorHandler = function(er) {
+                var caught = !1;
                 if (this._disposed) return !0;
-                f.isPrimitive(t) || (t.domain = this, t.domainThrown = !0);
+                util.isPrimitive(er) || (er.domain = this, er.domainThrown = !0);
                 try {
-                    e = this.emit("error", t), l.length = 0, n.active = i.domain = null;
-                } catch (r) {
-                    return this === n.active && l.pop(), l.length ? (n.active = i.domain = l[l.length - 1], 
-                    e = i._fatalException(r)) : e = !1, e;
+                    caught = this.emit("error", er), stack.length = 0, exports.active = process.domain = null;
+                } catch (er2) {
+                    return this === exports.active && stack.pop(), stack.length ? (exports.active = process.domain = stack[stack.length - 1], 
+                    caught = process._fatalException(er2)) : caught = !1, caught;
                 }
-                return e;
-            }, o.prototype.enter = function() {
-                this._disposed || (n.active = i.domain = this, l.push(this), c[0] = l.length);
-            }, o.prototype.exit = function() {
-                var t = l.lastIndexOf(this);
-                this._disposed || -1 === t || (l.splice(t), c[0] = l.length, n.active = l[l.length - 1], 
-                i.domain = n.active);
-            }, o.prototype.add = function(t) {
-                if (!this._disposed && t.domain !== this) {
-                    if (t.domain && t.domain.remove(t), this.domain && t instanceof o) for (var e = this.domain; e; e = e.domain) if (t === e) return;
-                    t.domain = this, this.members.push(t);
+                return caught;
+            }, Domain.prototype.enter = function() {
+                this._disposed || (exports.active = process.domain = this, stack.push(this), _domain_flag[0] = stack.length);
+            }, Domain.prototype.exit = function() {
+                var index = stack.lastIndexOf(this);
+                this._disposed || -1 === index || (stack.splice(index), _domain_flag[0] = stack.length, 
+                exports.active = stack[stack.length - 1], process.domain = exports.active);
+            }, Domain.prototype.add = function(ee) {
+                if (!this._disposed && ee.domain !== this) {
+                    if (ee.domain && ee.domain.remove(ee), this.domain && ee instanceof Domain) for (var d = this.domain; d; d = d.domain) if (ee === d) return;
+                    ee.domain = this, this.members.push(ee);
                 }
-            }, o.prototype.remove = function(t) {
-                t.domain = null;
-                var e = this.members.indexOf(t);
-                -1 !== e && this.members.splice(e, 1);
-            }, o.prototype.run = function(t) {
+            }, Domain.prototype.remove = function(ee) {
+                ee.domain = null;
+                var index = this.members.indexOf(ee);
+                -1 !== index && this.members.splice(index, 1);
+            }, Domain.prototype.run = function(fn) {
                 if (!this._disposed) {
                     this.enter();
-                    var e = t.call(this);
-                    return this.exit(), e;
+                    var ret = fn.call(this);
+                    return this.exit(), ret;
                 }
-            }, o.prototype.intercept = function(t) {
-                function e() {
-                    return a(this, n, t, arguments);
+            }, Domain.prototype.intercept = function(cb) {
+                function runIntercepted() {
+                    return intercepted(this, self, cb, arguments);
                 }
-                var n = this;
-                return e;
-            }, o.prototype.bind = function(t) {
-                function e() {
-                    return u(this, n, t, arguments);
+                var self = this;
+                return runIntercepted;
+            }, Domain.prototype.bind = function(cb) {
+                function runBound() {
+                    return bound(this, self, cb, arguments);
                 }
-                var n = this;
-                return e.domain = this, e;
-            }, o.prototype.dispose = f.deprecate(function() {
+                var self = this;
+                return runBound.domain = this, runBound;
+            }, Domain.prototype.dispose = util.deprecate(function() {
                 this._disposed || (this.exit(), this.domain && this.domain.remove(this), this.members.length = 0, 
                 this._disposed = !0);
             });
         };
-    }), e("events", function() {
-        return function(t, e, n, r, s, i) {
+    }), define("events", function(root) {
+        return function(require, module, exports, __dirname, __filename, process, global) {
             "use strict";
-            function o() {
-                o.init.call(this);
+            function EventEmitter() {
+                EventEmitter.init.call(this);
             }
-            var a, u = t("util");
-            e.exports = o, o.EventEmitter = o, o.usingDomains = !1, o.prototype.domain = void 0, 
-            o.prototype._events = void 0, o.prototype._maxListeners = void 0, o.defaultMaxListeners = 10, 
-            o.init = function() {
-                this.domain = null, o.usingDomains && (a = a || t("domain"), !a.active || this instanceof a.Domain || (this.domain = a.active)), 
+            var domain, util = require("util");
+            module.exports = EventEmitter, EventEmitter.EventEmitter = EventEmitter, EventEmitter.usingDomains = !1, 
+            EventEmitter.prototype.domain = void 0, EventEmitter.prototype._events = void 0, 
+            EventEmitter.prototype._maxListeners = void 0, EventEmitter.defaultMaxListeners = 10, 
+            EventEmitter.init = function() {
+                this.domain = null, EventEmitter.usingDomains && (domain = domain || require("domain"), 
+                !domain.active || this instanceof domain.Domain || (this.domain = domain.active)), 
                 this._events && this._events !== Object.getPrototypeOf(this)._events || (this._events = {}), 
                 this._maxListeners = this._maxListeners || void 0;
-            }, o.prototype.setMaxListeners = function(t) {
-                if (!u.isNumber(t) || 0 > t || isNaN(t)) throw TypeError("n must be a positive number");
-                return this._maxListeners = t, this;
-            }, o.prototype.emit = function(t) {
-                var e, n, r, s, o, a;
-                if (this._events || (this._events = {}), "error" === t && !this._events.error) {
-                    if (e = arguments[1], !this.domain) throw e instanceof Error ? e : Error('Uncaught, unspecified "error" event.');
-                    return e || (e = Error('Uncaught, unspecified "error" event.')), e.domainEmitter = this, 
-                    e.domain = this.domain, e.domainThrown = !1, this.domain.emit("error", e), !1;
+            }, EventEmitter.prototype.setMaxListeners = function(n) {
+                if (!util.isNumber(n) || 0 > n || isNaN(n)) throw TypeError("n must be a positive number");
+                return this._maxListeners = n, this;
+            }, EventEmitter.prototype.emit = function(type) {
+                var er, handler, len, args, i, listeners;
+                if (this._events || (this._events = {}), "error" === type && !this._events.error) {
+                    if (er = arguments[1], !this.domain) throw er instanceof Error ? er : Error('Uncaught, unspecified "error" event.');
+                    return er || (er = new Error('Uncaught, unspecified "error" event.')), er.domainEmitter = this, 
+                    er.domain = this.domain, er.domainThrown = !1, this.domain.emit("error", er), !1;
                 }
-                if (n = this._events[t], u.isUndefined(n)) return !1;
-                if (this.domain && this !== i && this.domain.enter(), u.isFunction(n)) switch (arguments.length) {
+                if (handler = this._events[type], util.isUndefined(handler)) return !1;
+                if (this.domain && this !== process && this.domain.enter(), util.isFunction(handler)) switch (arguments.length) {
                   case 1:
-                    n.call(this);
+                    handler.call(this);
                     break;
 
                   case 2:
-                    n.call(this, arguments[1]);
+                    handler.call(this, arguments[1]);
                     break;
 
                   case 3:
-                    n.call(this, arguments[1], arguments[2]);
+                    handler.call(this, arguments[1], arguments[2]);
                     break;
 
                   default:
-                    for (r = arguments.length, s = Array(r - 1), o = 1; r > o; o++) s[o - 1] = arguments[o];
-                    n.apply(this, s);
-                } else if (u.isObject(n)) {
-                    for (r = arguments.length, s = Array(r - 1), o = 1; r > o; o++) s[o - 1] = arguments[o];
-                    for (a = n.slice(), r = a.length, o = 0; r > o; o++) a[o].apply(this, s);
+                    for (len = arguments.length, args = new Array(len - 1), i = 1; len > i; i++) args[i - 1] = arguments[i];
+                    handler.apply(this, args);
+                } else if (util.isObject(handler)) {
+                    for (len = arguments.length, args = new Array(len - 1), i = 1; len > i; i++) args[i - 1] = arguments[i];
+                    for (listeners = handler.slice(), len = listeners.length, i = 0; len > i; i++) listeners[i].apply(this, args);
                 }
-                return this.domain && this !== i && this.domain.exit(), !0;
-            }, o.prototype.addListener = function(t, e) {
-                var n;
-                if (!u.isFunction(e)) throw TypeError("listener must be a function");
-                return this._events || (this._events = {}), this._events.newListener && this.emit("newListener", t, u.isFunction(e.listener) ? e.listener : e), 
-                this._events[t] ? u.isObject(this._events[t]) ? this._events[t].push(e) : this._events[t] = [ this._events[t], e ] : this._events[t] = e, 
-                u.isObject(this._events[t]) && !this._events[t].warned && (n = u.isUndefined(this._maxListeners) ? o.defaultMaxListeners : this._maxListeners, 
-                n && n > 0 && this._events[t].length > n && (this._events[t].warned = !0, console.error("(node) warning: possible EventEmitter memory leak detected. %d %s listeners added. Use emitter.setMaxListeners() to increase limit.", this._events[t].length, t), 
-                console.trace())), this;
-            }, o.prototype.on = o.prototype.addListener, o.prototype.once = function(t, e) {
-                function n() {
-                    this.removeListener(t, n), r || (r = !0, e.apply(this, arguments));
-                }
-                if (!u.isFunction(e)) throw TypeError("listener must be a function");
-                var r = !1;
-                return n.listener = e, this.on(t, n), this;
-            }, o.prototype.removeListener = function(t, e) {
-                var n, r, s, i;
-                if (!u.isFunction(e)) throw TypeError("listener must be a function");
-                if (!this._events || !this._events[t]) return this;
-                if (n = this._events[t], s = n.length, r = -1, n === e || u.isFunction(n.listener) && n.listener === e) delete this._events[t], 
-                this._events.removeListener && this.emit("removeListener", t, e); else if (u.isObject(n)) {
-                    for (i = s; i-- > 0; ) if (n[i] === e || n[i].listener && n[i].listener === e) {
-                        r = i;
-                        break;
-                    }
-                    if (0 > r) return this;
-                    1 === n.length ? (n.length = 0, delete this._events[t]) : n.splice(r, 1), this._events.removeListener && this.emit("removeListener", t, e);
+                return this.domain && this !== process && this.domain.exit(), !0;
+            }, EventEmitter.prototype.addListener = function(type, listener) {
+                var m;
+                if (!util.isFunction(listener)) throw TypeError("listener must be a function");
+                if (this._events || (this._events = {}), this._events.newListener && this.emit("newListener", type, util.isFunction(listener.listener) ? listener.listener : listener), 
+                this._events[type] ? util.isObject(this._events[type]) ? this._events[type].push(listener) : this._events[type] = [ this._events[type], listener ] : this._events[type] = listener, 
+                util.isObject(this._events[type]) && !this._events[type].warned) {
+                    var m;
+                    m = util.isUndefined(this._maxListeners) ? EventEmitter.defaultMaxListeners : this._maxListeners, 
+                    m && m > 0 && this._events[type].length > m && (this._events[type].warned = !0, 
+                    console.error("(node) warning: possible EventEmitter memory leak detected. %d %s listeners added. Use emitter.setMaxListeners() to increase limit.", this._events[type].length, type), 
+                    console.trace());
                 }
                 return this;
-            }, o.prototype.removeAllListeners = function(t) {
-                var e, n;
+            }, EventEmitter.prototype.on = EventEmitter.prototype.addListener, EventEmitter.prototype.once = function(type, listener) {
+                function g() {
+                    this.removeListener(type, g), fired || (fired = !0, listener.apply(this, arguments));
+                }
+                if (!util.isFunction(listener)) throw TypeError("listener must be a function");
+                var fired = !1;
+                return g.listener = listener, this.on(type, g), this;
+            }, EventEmitter.prototype.removeListener = function(type, listener) {
+                var list, position, length, i;
+                if (!util.isFunction(listener)) throw TypeError("listener must be a function");
+                if (!this._events || !this._events[type]) return this;
+                if (list = this._events[type], length = list.length, position = -1, list === listener || util.isFunction(list.listener) && list.listener === listener) delete this._events[type], 
+                this._events.removeListener && this.emit("removeListener", type, listener); else if (util.isObject(list)) {
+                    for (i = length; i-- > 0; ) if (list[i] === listener || list[i].listener && list[i].listener === listener) {
+                        position = i;
+                        break;
+                    }
+                    if (0 > position) return this;
+                    1 === list.length ? (list.length = 0, delete this._events[type]) : list.splice(position, 1), 
+                    this._events.removeListener && this.emit("removeListener", type, listener);
+                }
+                return this;
+            }, EventEmitter.prototype.removeAllListeners = function(type) {
+                var key, listeners;
                 if (!this._events) return this;
-                if (!this._events.removeListener) return 0 === arguments.length ? this._events = {} : this._events[t] && delete this._events[t], 
+                if (!this._events.removeListener) return 0 === arguments.length ? this._events = {} : this._events[type] && delete this._events[type], 
                 this;
                 if (0 === arguments.length) {
-                    for (e in this._events) "removeListener" !== e && this.removeAllListeners(e);
+                    for (key in this._events) "removeListener" !== key && this.removeAllListeners(key);
                     return this.removeAllListeners("removeListener"), this._events = {}, this;
                 }
-                if (n = this._events[t], u.isFunction(n)) this.removeListener(t, n); else if (Array.isArray(n)) for (;n.length; ) this.removeListener(t, n[n.length - 1]);
-                return delete this._events[t], this;
-            }, o.prototype.listeners = function(t) {
-                var e;
-                return e = this._events && this._events[t] ? u.isFunction(this._events[t]) ? [ this._events[t] ] : this._events[t].slice() : [];
-            }, o.listenerCount = function(t, e) {
-                var n;
-                return n = t._events && t._events[e] ? u.isFunction(t._events[e]) ? 1 : t._events[e].length : 0;
+                if (listeners = this._events[type], util.isFunction(listeners)) this.removeListener(type, listeners); else if (Array.isArray(listeners)) for (;listeners.length; ) this.removeListener(type, listeners[listeners.length - 1]);
+                return delete this._events[type], this;
+            }, EventEmitter.prototype.listeners = function(type) {
+                var ret;
+                return ret = this._events && this._events[type] ? util.isFunction(this._events[type]) ? [ this._events[type] ] : this._events[type].slice() : [];
+            }, EventEmitter.listenerCount = function(emitter, type) {
+                var ret;
+                return ret = emitter._events && emitter._events[type] ? util.isFunction(emitter._events[type]) ? 1 : emitter._events[type].length : 0;
             };
         };
-    }), e("path", function() {
-        return function(t, e, n, r, s, i) {
+    }), define("path", function(root) {
+        return function(require, module, exports, __dirname, __filename, process, global) {
             "use strict";
-            function o(t, e) {
-                var n, r, s = [];
-                for (n = 0; n < t.length; n++) r = t[n], r && "." !== r && (".." === r ? s.length && ".." !== s[s.length - 1] ? s.pop() : e && s.push("..") : s.push(r));
-                return s;
+            function normalizeArray(parts, allowAboveRoot) {
+                for (var res = [], i = 0; i < parts.length; i++) {
+                    var p = parts[i];
+                    p && "." !== p && (".." === p ? res.length && ".." !== res[res.length - 1] ? res.pop() : allowAboveRoot && res.push("..") : res.push(p));
+                }
+                return res;
             }
-            function a(t) {
-                for (var e, n = t.length - 1, r = 0; n >= r && !t[r]; r++) ;
-                for (e = n; e >= 0 && !t[e]; e--) ;
-                return 0 === r && e === n ? t : r > e ? [] : t.slice(r, e + 1);
+            function trimArray(arr) {
+                for (var lastIndex = arr.length - 1, start = 0; lastIndex >= start && !arr[start]; start++) ;
+                for (var end = lastIndex; end >= 0 && !arr[end]; end--) ;
+                return 0 === start && end === lastIndex ? arr : start > end ? [] : arr.slice(start, end + 1);
             }
-            function u(t) {
-                var e = g.exec(t), n = (e[1] || "") + (e[2] || ""), r = e[3] || "", s = v.exec(r), i = s[1], o = s[2], a = s[3];
-                return [ n, i, o, a ];
+            function win32SplitPath(filename) {
+                var result = splitDeviceRe.exec(filename), device = (result[1] || "") + (result[2] || ""), tail = result[3] || "", result2 = splitTailRe.exec(tail), dir = result2[1], basename = result2[2], ext = result2[3];
+                return [ device, dir, basename, ext ];
             }
-            function h(t) {
-                var e = g.exec(t), n = e[1] || "", r = !!n && ":" !== n[1];
+            function win32StatPath(path) {
+                var result = splitDeviceRe.exec(path), device = result[1] || "", isUnc = !!device && ":" !== device[1];
                 return {
-                    device: n,
-                    isUnc: r,
-                    isAbsolute: r || !!e[2],
-                    tail: e[3]
+                    device: device,
+                    isUnc: isUnc,
+                    isAbsolute: isUnc || !!result[2],
+                    tail: result[3]
                 };
             }
-            function c(t) {
-                return "\\\\" + t.replace(/^[\\\/]+/, "").replace(/[\\\/]+/g, "\\");
+            function normalizeUNCRoot(device) {
+                return "\\\\" + device.replace(/^[\\\/]+/, "").replace(/[\\\/]+/g, "\\");
             }
-            function l(t) {
-                return f.exec(t).slice(1);
+            function posixSplitPath(filename) {
+                return splitPathRe.exec(filename).slice(1);
             }
-            var f, p, m = "win32" === i.platform, d = t("util"), g = /^([a-zA-Z]:|[\\\/]{2}[^\\\/]+[\\\/]+[^\\\/]+)?([\\\/])?([\s\S]*?)$/, v = /^([\s\S]*?)((?:\.{1,2}|[^\\\/]+?|)(\.[^.\/\\]*|))(?:[\\\/]*)$/, y = {};
-            y.resolve = function() {
-                var t, e, n, r, s, a, u, l = "", f = "", p = !1;
-                for (t = arguments.length - 1; t >= -1; t--) {
-                    if (t >= 0 ? e = arguments[t] : l ? (e = i.env["=" + l], e && e.substr(0, 3).toLowerCase() === l.toLowerCase() + "\\" || (e = l + "\\")) : e = i.cwd(), 
-                    !d.isString(e)) throw new TypeError("Arguments to path.resolve must be strings");
-                    if (e && (n = h(e), r = n.device, s = n.isUnc, a = n.isAbsolute, u = n.tail, (!r || !l || r.toLowerCase() === l.toLowerCase()) && (l || (l = r), 
-                    p || (f = u + "\\" + f, p = a), l && p))) break;
+            var isWindows = "win32" === process.platform, util = require("util"), splitDeviceRe = /^([a-zA-Z]:|[\\\/]{2}[^\\\/]+[\\\/]+[^\\\/]+)?([\\\/])?([\s\S]*?)$/, splitTailRe = /^([\s\S]*?)((?:\.{1,2}|[^\\\/]+?|)(\.[^.\/\\]*|))(?:[\\\/]*)$/, win32 = {};
+            win32.resolve = function() {
+                for (var resolvedDevice = "", resolvedTail = "", resolvedAbsolute = !1, i = arguments.length - 1; i >= -1; i--) {
+                    var path;
+                    if (i >= 0 ? path = arguments[i] : resolvedDevice ? (path = process.env["=" + resolvedDevice], 
+                    path && path.substr(0, 3).toLowerCase() === resolvedDevice.toLowerCase() + "\\" || (path = resolvedDevice + "\\")) : path = process.cwd(), 
+                    !util.isString(path)) throw new TypeError("Arguments to path.resolve must be strings");
+                    if (path) {
+                        var result = win32StatPath(path), device = result.device, isUnc = result.isUnc, isAbsolute = result.isAbsolute, tail = result.tail;
+                        if ((!device || !resolvedDevice || device.toLowerCase() === resolvedDevice.toLowerCase()) && (resolvedDevice || (resolvedDevice = device), 
+                        resolvedAbsolute || (resolvedTail = tail + "\\" + resolvedTail, resolvedAbsolute = isAbsolute), 
+                        resolvedDevice && resolvedAbsolute)) break;
+                    }
                 }
-                return s && (l = c(l)), f = o(f.split(/[\\\/]+/), !p).join("\\"), l + (p ? "\\" : "") + f || ".";
-            }, y.normalize = function(t) {
-                var e = h(t), n = e.device, r = e.isUnc, s = e.isAbsolute, i = e.tail, a = /[\\\/]$/.test(i);
-                return i = o(i.split(/[\\\/]+/), !s).join("\\"), i || s || (i = "."), i && a && (i += "\\"), 
-                r && (n = c(n)), n + (s ? "\\" : "") + i;
-            }, y.isAbsolute = function(t) {
-                return h(t).isAbsolute;
-            }, y.join = function() {
-                var t, e, n, r = [];
-                for (t = 0; t < arguments.length; t++) {
-                    if (e = arguments[t], !d.isString(e)) throw new TypeError("Arguments to path.join must be strings");
-                    e && r.push(e);
+                return isUnc && (resolvedDevice = normalizeUNCRoot(resolvedDevice)), resolvedTail = normalizeArray(resolvedTail.split(/[\\\/]+/), !resolvedAbsolute).join("\\"), 
+                resolvedDevice + (resolvedAbsolute ? "\\" : "") + resolvedTail || ".";
+            }, win32.normalize = function(path) {
+                var result = win32StatPath(path), device = result.device, isUnc = result.isUnc, isAbsolute = result.isAbsolute, tail = result.tail, trailingSlash = /[\\\/]$/.test(tail);
+                return tail = normalizeArray(tail.split(/[\\\/]+/), !isAbsolute).join("\\"), tail || isAbsolute || (tail = "."), 
+                tail && trailingSlash && (tail += "\\"), isUnc && (device = normalizeUNCRoot(device)), 
+                device + (isAbsolute ? "\\" : "") + tail;
+            }, win32.isAbsolute = function(path) {
+                return win32StatPath(path).isAbsolute;
+            }, win32.join = function() {
+                for (var paths = [], i = 0; i < arguments.length; i++) {
+                    var arg = arguments[i];
+                    if (!util.isString(arg)) throw new TypeError("Arguments to path.join must be strings");
+                    arg && paths.push(arg);
                 }
-                return n = r.join("\\"), /^[\\\/]{2}[^\\\/]/.test(r[0]) || (n = n.replace(/^[\\\/]{2,}/, "\\")), 
-                y.normalize(n);
-            }, y.relative = function(t, e) {
-                var n, r, s, i, o, u, h, c, l;
-                for (t = y.resolve(t), e = y.resolve(e), n = t.toLowerCase(), r = e.toLowerCase(), 
-                s = a(e.split("\\")), i = a(n.split("\\")), o = a(r.split("\\")), u = Math.min(i.length, o.length), 
-                h = u, c = 0; u > c; c++) if (i[c] !== o[c]) {
-                    h = c;
+                var joined = paths.join("\\");
+                return /^[\\\/]{2}[^\\\/]/.test(paths[0]) || (joined = joined.replace(/^[\\\/]{2,}/, "\\")), 
+                win32.normalize(joined);
+            }, win32.relative = function(from, to) {
+                from = win32.resolve(from), to = win32.resolve(to);
+                for (var lowerFrom = from.toLowerCase(), lowerTo = to.toLowerCase(), toParts = trimArray(to.split("\\")), lowerFromParts = trimArray(lowerFrom.split("\\")), lowerToParts = trimArray(lowerTo.split("\\")), length = Math.min(lowerFromParts.length, lowerToParts.length), samePartsLength = length, i = 0; length > i; i++) if (lowerFromParts[i] !== lowerToParts[i]) {
+                    samePartsLength = i;
                     break;
                 }
-                if (0 == h) return e;
-                for (l = [], c = h; c < i.length; c++) l.push("..");
-                return l = l.concat(s.slice(h)), l.join("\\");
-            }, y._makeLong = function(t) {
-                if (!d.isString(t)) return t;
-                if (!t) return "";
-                var e = y.resolve(t);
-                return /^[a-zA-Z]\:\\/.test(e) ? "\\\\?\\" + e : /^\\\\[^?.]/.test(e) ? "\\\\?\\UNC\\" + e.substring(2) : t;
-            }, y.dirname = function(t) {
-                var e = u(t), n = e[0], r = e[1];
-                return n || r ? (r && (r = r.substr(0, r.length - 1)), n + r) : ".";
-            }, y.basename = function(t, e) {
-                var n = u(t)[2];
-                return e && n.substr(-1 * e.length) === e && (n = n.substr(0, n.length - e.length)), 
-                n;
-            }, y.extname = function(t) {
-                return u(t)[3];
-            }, y.format = function(t) {
-                var e, n, r;
-                if (!d.isObject(t)) throw new TypeError("Parameter 'pathObject' must be an object, not " + typeof t);
-                if (e = t.root || "", !d.isString(e)) throw new TypeError("'pathObject.root' must be a string or undefined, not " + typeof t.root);
-                return n = t.dir, r = t.base || "", n ? n[n.length - 1] === y.sep ? n + r : n + y.sep + r : r;
-            }, y.parse = function(t) {
-                if (!d.isString(t)) throw new TypeError("Parameter 'pathString' must be a string, not " + typeof t);
-                var e = u(t);
-                if (!e || 4 !== e.length) throw new TypeError("Invalid path '" + t + "'");
+                if (0 == samePartsLength) return to;
+                for (var outputParts = [], i = samePartsLength; i < lowerFromParts.length; i++) outputParts.push("..");
+                return outputParts = outputParts.concat(toParts.slice(samePartsLength)), outputParts.join("\\");
+            }, win32._makeLong = function(path) {
+                if (!util.isString(path)) return path;
+                if (!path) return "";
+                var resolvedPath = win32.resolve(path);
+                return /^[a-zA-Z]\:\\/.test(resolvedPath) ? "\\\\?\\" + resolvedPath : /^\\\\[^?.]/.test(resolvedPath) ? "\\\\?\\UNC\\" + resolvedPath.substring(2) : path;
+            }, win32.dirname = function(path) {
+                var result = win32SplitPath(path), root = result[0], dir = result[1];
+                return root || dir ? (dir && (dir = dir.substr(0, dir.length - 1)), root + dir) : ".";
+            }, win32.basename = function(path, ext) {
+                var f = win32SplitPath(path)[2];
+                return ext && f.substr(-1 * ext.length) === ext && (f = f.substr(0, f.length - ext.length)), 
+                f;
+            }, win32.extname = function(path) {
+                return win32SplitPath(path)[3];
+            }, win32.format = function(pathObject) {
+                if (!util.isObject(pathObject)) throw new TypeError("Parameter 'pathObject' must be an object, not " + typeof pathObject);
+                var root = pathObject.root || "";
+                if (!util.isString(root)) throw new TypeError("'pathObject.root' must be a string or undefined, not " + typeof pathObject.root);
+                var dir = pathObject.dir, base = pathObject.base || "";
+                return dir ? dir[dir.length - 1] === win32.sep ? dir + base : dir + win32.sep + base : base;
+            }, win32.parse = function(pathString) {
+                if (!util.isString(pathString)) throw new TypeError("Parameter 'pathString' must be a string, not " + typeof pathString);
+                var allParts = win32SplitPath(pathString);
+                if (!allParts || 4 !== allParts.length) throw new TypeError("Invalid path '" + pathString + "'");
                 return {
-                    root: e[0],
-                    dir: e[0] + e[1].slice(0, -1),
-                    base: e[2],
-                    ext: e[3],
-                    name: e[2].slice(0, e[2].length - e[3].length)
+                    root: allParts[0],
+                    dir: allParts[0] + allParts[1].slice(0, -1),
+                    base: allParts[2],
+                    ext: allParts[3],
+                    name: allParts[2].slice(0, allParts[2].length - allParts[3].length)
                 };
-            }, y.sep = "\\", y.delimiter = ";", f = /^(\/?|)([\s\S]*?)((?:\.{1,2}|[^\/]+?|)(\.[^.\/]*|))(?:[\/]*)$/, 
-            p = {}, p.resolve = function() {
-                var t, e, n = "", r = !1;
-                for (t = arguments.length - 1; t >= -1 && !r; t--) {
-                    if (e = t >= 0 ? arguments[t] : i.cwd(), !d.isString(e)) throw new TypeError("Arguments to path.resolve must be strings");
-                    e && (n = e + "/" + n, r = "/" === e[0]);
+            }, win32.sep = "\\", win32.delimiter = ";";
+            var splitPathRe = /^(\/?|)([\s\S]*?)((?:\.{1,2}|[^\/]+?|)(\.[^.\/]*|))(?:[\/]*)$/, posix = {};
+            posix.resolve = function() {
+                for (var resolvedPath = "", resolvedAbsolute = !1, i = arguments.length - 1; i >= -1 && !resolvedAbsolute; i--) {
+                    var path = i >= 0 ? arguments[i] : process.cwd();
+                    if (!util.isString(path)) throw new TypeError("Arguments to path.resolve must be strings");
+                    path && (resolvedPath = path + "/" + resolvedPath, resolvedAbsolute = "/" === path[0]);
                 }
-                return n = o(n.split("/"), !r).join("/"), (r ? "/" : "") + n || ".";
-            }, p.normalize = function(t) {
-                var e = p.isAbsolute(t), n = t && "/" === t[t.length - 1];
-                return t = o(t.split("/"), !e).join("/"), t || e || (t = "."), t && n && (t += "/"), 
-                (e ? "/" : "") + t;
-            }, p.isAbsolute = function(t) {
-                return "/" === t.charAt(0);
-            }, p.join = function() {
-                var t, e, n = "";
-                for (t = 0; t < arguments.length; t++) {
-                    if (e = arguments[t], !d.isString(e)) throw new TypeError("Arguments to path.join must be strings");
-                    e && (n += n ? "/" + e : e);
+                return resolvedPath = normalizeArray(resolvedPath.split("/"), !resolvedAbsolute).join("/"), 
+                (resolvedAbsolute ? "/" : "") + resolvedPath || ".";
+            }, posix.normalize = function(path) {
+                var isAbsolute = posix.isAbsolute(path), trailingSlash = path && "/" === path[path.length - 1];
+                return path = normalizeArray(path.split("/"), !isAbsolute).join("/"), path || isAbsolute || (path = "."), 
+                path && trailingSlash && (path += "/"), (isAbsolute ? "/" : "") + path;
+            }, posix.isAbsolute = function(path) {
+                return "/" === path.charAt(0);
+            }, posix.join = function() {
+                for (var path = "", i = 0; i < arguments.length; i++) {
+                    var segment = arguments[i];
+                    if (!util.isString(segment)) throw new TypeError("Arguments to path.join must be strings");
+                    segment && (path += path ? "/" + segment : segment);
                 }
-                return p.normalize(n);
-            }, p.relative = function(t, e) {
-                var n, r, s, i, o, u;
-                for (t = p.resolve(t).substr(1), e = p.resolve(e).substr(1), n = a(t.split("/")), 
-                r = a(e.split("/")), s = Math.min(n.length, r.length), i = s, o = 0; s > o; o++) if (n[o] !== r[o]) {
-                    i = o;
+                return posix.normalize(path);
+            }, posix.relative = function(from, to) {
+                from = posix.resolve(from).substr(1), to = posix.resolve(to).substr(1);
+                for (var fromParts = trimArray(from.split("/")), toParts = trimArray(to.split("/")), length = Math.min(fromParts.length, toParts.length), samePartsLength = length, i = 0; length > i; i++) if (fromParts[i] !== toParts[i]) {
+                    samePartsLength = i;
                     break;
                 }
-                for (u = [], o = i; o < n.length; o++) u.push("..");
-                return u = u.concat(r.slice(i)), u.join("/");
-            }, p._makeLong = function(t) {
-                return t;
-            }, p.dirname = function(t) {
-                var e = l(t), n = e[0], r = e[1];
-                return n || r ? (r && (r = r.substr(0, r.length - 1)), n + r) : ".";
-            }, p.basename = function(t, e) {
-                var n = l(t)[2];
-                return e && n.substr(-1 * e.length) === e && (n = n.substr(0, n.length - e.length)), 
-                n;
-            }, p.extname = function(t) {
-                return l(t)[3];
-            }, p.format = function(t) {
-                var e, n, r;
-                if (!d.isObject(t)) throw new TypeError("Parameter 'pathObject' must be an object, not " + typeof t);
-                if (e = t.root || "", !d.isString(e)) throw new TypeError("'pathObject.root' must be a string or undefined, not " + typeof t.root);
-                return n = t.dir ? t.dir + p.sep : "", r = t.base || "", n + r;
-            }, p.parse = function(t) {
-                if (!d.isString(t)) throw new TypeError("Parameter 'pathString' must be a string, not " + typeof t);
-                var e = l(t);
-                if (!e || 4 !== e.length) throw new TypeError("Invalid path '" + t + "'");
-                return e[1] = e[1] || "", e[2] = e[2] || "", e[3] = e[3] || "", {
-                    root: e[0],
-                    dir: e[0] + e[1].slice(0, -1),
-                    base: e[2],
-                    ext: e[3],
-                    name: e[2].slice(0, e[2].length - e[3].length)
+                for (var outputParts = [], i = samePartsLength; i < fromParts.length; i++) outputParts.push("..");
+                return outputParts = outputParts.concat(toParts.slice(samePartsLength)), outputParts.join("/");
+            }, posix._makeLong = function(path) {
+                return path;
+            }, posix.dirname = function(path) {
+                var result = posixSplitPath(path), root = result[0], dir = result[1];
+                return root || dir ? (dir && (dir = dir.substr(0, dir.length - 1)), root + dir) : ".";
+            }, posix.basename = function(path, ext) {
+                var f = posixSplitPath(path)[2];
+                return ext && f.substr(-1 * ext.length) === ext && (f = f.substr(0, f.length - ext.length)), 
+                f;
+            }, posix.extname = function(path) {
+                return posixSplitPath(path)[3];
+            }, posix.format = function(pathObject) {
+                if (!util.isObject(pathObject)) throw new TypeError("Parameter 'pathObject' must be an object, not " + typeof pathObject);
+                var root = pathObject.root || "";
+                if (!util.isString(root)) throw new TypeError("'pathObject.root' must be a string or undefined, not " + typeof pathObject.root);
+                var dir = pathObject.dir ? pathObject.dir + posix.sep : "", base = pathObject.base || "";
+                return dir + base;
+            }, posix.parse = function(pathString) {
+                if (!util.isString(pathString)) throw new TypeError("Parameter 'pathString' must be a string, not " + typeof pathString);
+                var allParts = posixSplitPath(pathString);
+                if (!allParts || 4 !== allParts.length) throw new TypeError("Invalid path '" + pathString + "'");
+                return allParts[1] = allParts[1] || "", allParts[2] = allParts[2] || "", allParts[3] = allParts[3] || "", 
+                {
+                    root: allParts[0],
+                    dir: allParts[0] + allParts[1].slice(0, -1),
+                    base: allParts[2],
+                    ext: allParts[3],
+                    name: allParts[2].slice(0, allParts[2].length - allParts[3].length)
                 };
-            }, p.sep = "/", p.delimiter = ":", e.exports = m ? y : p, e.exports.posix = p, e.exports.win32 = y;
+            }, posix.sep = "/", posix.delimiter = ":", module.exports = isWindows ? win32 : posix, 
+            module.exports.posix = posix, module.exports.win32 = win32;
         };
-    }), e("punycode", function() {
-        return function(t, n, r, s, i, o, a) {
-            !function(t) {
-                function s(t) {
-                    throw RangeError(z[t]);
+    }), define("punycode", function(root) {
+        return function(require, module, exports, __dirname, __filename, process, global) {
+            !function(root) {
+                function error(type) {
+                    throw RangeError(errors[type]);
                 }
-                function i(t, e) {
-                    for (var n = t.length; n--; ) t[n] = e(t[n]);
-                    return t;
+                function map(array, fn) {
+                    for (var length = array.length; length--; ) array[length] = fn(array[length]);
+                    return array;
                 }
-                function o(t, e) {
-                    return i(t.split(C), e).join(".");
+                function mapDomain(string, fn) {
+                    return map(string.split(regexSeparators), fn).join(".");
                 }
-                function u(t) {
-                    for (var e, n, r = [], s = 0, i = t.length; i > s; ) e = t.charCodeAt(s++), e >= 55296 && 56319 >= e && i > s ? (n = t.charCodeAt(s++), 
-                    56320 == (64512 & n) ? r.push(((1023 & e) << 10) + (1023 & n) + 65536) : (r.push(e), 
-                    s--)) : r.push(e);
-                    return r;
+                function ucs2decode(string) {
+                    for (var value, extra, output = [], counter = 0, length = string.length; length > counter; ) value = string.charCodeAt(counter++), 
+                    value >= 55296 && 56319 >= value && length > counter ? (extra = string.charCodeAt(counter++), 
+                    56320 == (64512 & extra) ? output.push(((1023 & value) << 10) + (1023 & extra) + 65536) : (output.push(value), 
+                    counter--)) : output.push(value);
+                    return output;
                 }
-                function h(t) {
-                    return i(t, function(t) {
-                        var e = "";
-                        return t > 65535 && (t -= 65536, e += k(t >>> 10 & 1023 | 55296), t = 56320 | 1023 & t), 
-                        e += k(t);
+                function ucs2encode(array) {
+                    return map(array, function(value) {
+                        var output = "";
+                        return value > 65535 && (value -= 65536, output += stringFromCharCode(value >>> 10 & 1023 | 55296), 
+                        value = 56320 | 1023 & value), output += stringFromCharCode(value);
                     }).join("");
                 }
-                function c(t) {
-                    return 10 > t - 48 ? t - 22 : 26 > t - 65 ? t - 65 : 26 > t - 97 ? t - 97 : b;
+                function basicToDigit(codePoint) {
+                    return 10 > codePoint - 48 ? codePoint - 22 : 26 > codePoint - 65 ? codePoint - 65 : 26 > codePoint - 97 ? codePoint - 97 : base;
                 }
-                function l(t, e) {
-                    return t + 22 + 75 * (26 > t) - ((0 != e) << 5);
+                function digitToBasic(digit, flag) {
+                    return digit + 22 + 75 * (26 > digit) - ((0 != flag) << 5);
                 }
-                function f(t, e, n) {
-                    var r = 0;
-                    for (t = n ? D(t / x) : t >> 1, t += D(t / e); t > U * _ >> 1; r += b) t = D(t / U);
-                    return D(r + (U + 1) * t / (t + j));
+                function adapt(delta, numPoints, firstTime) {
+                    var k = 0;
+                    for (delta = firstTime ? floor(delta / damp) : delta >> 1, delta += floor(delta / numPoints); delta > baseMinusTMin * tMax >> 1; k += base) delta = floor(delta / baseMinusTMin);
+                    return floor(k + (baseMinusTMin + 1) * delta / (delta + skew));
                 }
-                function p(t) {
-                    var e, n, r, i, o, a, u, l, p, m, d = [], g = t.length, v = 0, j = A, x = O;
-                    for (n = t.lastIndexOf(E), 0 > n && (n = 0), r = 0; n > r; ++r) t.charCodeAt(r) >= 128 && s("not-basic"), 
-                    d.push(t.charCodeAt(r));
-                    for (i = n > 0 ? n + 1 : 0; g > i; ) {
-                        for (o = v, a = 1, u = b; i >= g && s("invalid-input"), l = c(t.charCodeAt(i++)), 
-                        (l >= b || l > D((y - v) / a)) && s("overflow"), v += l * a, p = x >= u ? w : u >= x + _ ? _ : u - x, 
-                        !(p > l); u += b) m = b - p, a > D(y / m) && s("overflow"), a *= m;
-                        e = d.length + 1, x = f(v - o, e, 0 == o), D(v / e) > y - j && s("overflow"), j += D(v / e), 
-                        v %= e, d.splice(v++, 0, j);
+                function decode(input) {
+                    var out, basic, j, index, oldi, w, k, digit, t, baseMinusT, output = [], inputLength = input.length, i = 0, n = initialN, bias = initialBias;
+                    for (basic = input.lastIndexOf(delimiter), 0 > basic && (basic = 0), j = 0; basic > j; ++j) input.charCodeAt(j) >= 128 && error("not-basic"), 
+                    output.push(input.charCodeAt(j));
+                    for (index = basic > 0 ? basic + 1 : 0; inputLength > index; ) {
+                        for (oldi = i, w = 1, k = base; index >= inputLength && error("invalid-input"), 
+                        digit = basicToDigit(input.charCodeAt(index++)), (digit >= base || digit > floor((maxInt - i) / w)) && error("overflow"), 
+                        i += digit * w, t = bias >= k ? tMin : k >= bias + tMax ? tMax : k - bias, !(t > digit); k += base) baseMinusT = base - t, 
+                        w > floor(maxInt / baseMinusT) && error("overflow"), w *= baseMinusT;
+                        out = output.length + 1, bias = adapt(i - oldi, out, 0 == oldi), floor(i / out) > maxInt - n && error("overflow"), 
+                        n += floor(i / out), i %= out, output.splice(i++, 0, n);
                     }
-                    return h(d);
+                    return ucs2encode(output);
                 }
-                function m(t) {
-                    var e, n, r, i, o, a, h, c, p, m, d, g, v, j, x, L = [];
-                    for (t = u(t), g = t.length, e = A, n = 0, o = O, a = 0; g > a; ++a) d = t[a], 128 > d && L.push(k(d));
-                    for (r = i = L.length, i && L.push(E); g > r; ) {
-                        for (h = y, a = 0; g > a; ++a) d = t[a], d >= e && h > d && (h = d);
-                        for (v = r + 1, h - e > D((y - n) / v) && s("overflow"), n += (h - e) * v, e = h, 
-                        a = 0; g > a; ++a) if (d = t[a], e > d && ++n > y && s("overflow"), d == e) {
-                            for (c = n, p = b; m = o >= p ? w : p >= o + _ ? _ : p - o, !(m > c); p += b) x = c - m, 
-                            j = b - m, L.push(k(l(m + x % j, 0))), c = D(x / j);
-                            L.push(k(l(c, 0))), o = f(n, v, r == i), n = 0, ++r;
+                function encode(input) {
+                    var n, delta, handledCPCount, basicLength, bias, j, m, q, k, t, currentValue, inputLength, handledCPCountPlusOne, baseMinusT, qMinusT, output = [];
+                    for (input = ucs2decode(input), inputLength = input.length, n = initialN, delta = 0, 
+                    bias = initialBias, j = 0; inputLength > j; ++j) currentValue = input[j], 128 > currentValue && output.push(stringFromCharCode(currentValue));
+                    for (handledCPCount = basicLength = output.length, basicLength && output.push(delimiter); inputLength > handledCPCount; ) {
+                        for (m = maxInt, j = 0; inputLength > j; ++j) currentValue = input[j], currentValue >= n && m > currentValue && (m = currentValue);
+                        for (handledCPCountPlusOne = handledCPCount + 1, m - n > floor((maxInt - delta) / handledCPCountPlusOne) && error("overflow"), 
+                        delta += (m - n) * handledCPCountPlusOne, n = m, j = 0; inputLength > j; ++j) if (currentValue = input[j], 
+                        n > currentValue && ++delta > maxInt && error("overflow"), currentValue == n) {
+                            for (q = delta, k = base; t = bias >= k ? tMin : k >= bias + tMax ? tMax : k - bias, 
+                            !(t > q); k += base) qMinusT = q - t, baseMinusT = base - t, output.push(stringFromCharCode(digitToBasic(t + qMinusT % baseMinusT, 0))), 
+                            q = floor(qMinusT / baseMinusT);
+                            output.push(stringFromCharCode(digitToBasic(q, 0))), bias = adapt(delta, handledCPCountPlusOne, handledCPCount == basicLength), 
+                            delta = 0, ++handledCPCount;
                         }
-                        ++n, ++e;
+                        ++delta, ++n;
                     }
-                    return L.join("");
+                    return output.join("");
                 }
-                function d(t) {
-                    return o(t, function(t) {
-                        return L.test(t) ? p(t.slice(4).toLowerCase()) : t;
+                function toUnicode(domain) {
+                    return mapDomain(domain, function(string) {
+                        return regexPunycode.test(string) ? decode(string.slice(4).toLowerCase()) : string;
                     });
                 }
-                function g(t) {
-                    return o(t, function(t) {
-                        return S.test(t) ? "xn--" + m(t) : t;
+                function toASCII(domain) {
+                    return mapDomain(domain, function(string) {
+                        return regexNonASCII.test(string) ? "xn--" + encode(string) : string;
                     });
                 }
-                var v, y, b, w, _, j, x, O, A, E, L, S, C, z, U, D, k, I, N = "object" == typeof r && r, q = "object" == typeof n && n && n.exports == N && n, T = "object" == typeof a && a;
-                if ((T.global === T || T.window === T) && (t = T), y = 2147483647, b = 36, w = 1, 
-                _ = 26, j = 38, x = 700, O = 72, A = 128, E = "-", L = /^xn--/, S = /[^ -~]/, C = /\x2E|\u3002|\uFF0E|\uFF61/g, 
-                z = {
+                var freeExports = "object" == typeof exports && exports, freeModule = "object" == typeof module && module && module.exports == freeExports && module, freeGlobal = "object" == typeof global && global;
+                (freeGlobal.global === freeGlobal || freeGlobal.window === freeGlobal) && (root = freeGlobal);
+                var punycode, key, maxInt = 2147483647, base = 36, tMin = 1, tMax = 26, skew = 38, damp = 700, initialBias = 72, initialN = 128, delimiter = "-", regexPunycode = /^xn--/, regexNonASCII = /[^ -~]/, regexSeparators = /\x2E|\u3002|\uFF0E|\uFF61/g, errors = {
                     overflow: "Overflow: input needs wider integers to process",
                     "not-basic": "Illegal input >= 0x80 (not a basic code point)",
                     "invalid-input": "Invalid input"
-                }, U = b - w, D = Math.floor, k = String.fromCharCode, v = {
+                }, baseMinusTMin = base - tMin, floor = Math.floor, stringFromCharCode = String.fromCharCode;
+                if (punycode = {
                     version: "1.2.3",
                     ucs2: {
-                        decode: u,
-                        encode: h
+                        decode: ucs2decode,
+                        encode: ucs2encode
                     },
-                    decode: p,
-                    encode: m,
-                    toASCII: g,
-                    toUnicode: d
-                }, "function" == typeof e && "object" == typeof e.amd && e.amd) e(function() {
-                    return v;
-                }); else if (N && !N.nodeType) if (q) q.exports = v; else for (I in v) v.hasOwnProperty(I) && (N[I] = v[I]); else t.punycode = v;
+                    decode: decode,
+                    encode: encode,
+                    toASCII: toASCII,
+                    toUnicode: toUnicode
+                }, "function" == typeof define && "object" == typeof define.amd && define.amd) define(function() {
+                    return punycode;
+                }); else if (freeExports && !freeExports.nodeType) if (freeModule) freeModule.exports = punycode; else for (key in punycode) punycode.hasOwnProperty(key) && (freeExports[key] = punycode[key]); else root.punycode = punycode;
             }(this);
         };
-    }), e("querystring", function() {
-        return function(t, e, n) {
+    }), define("querystring", function(root) {
+        return function(require, module, exports, __dirname, __filename, process, global) {
             "use strict";
-            function r(t, e) {
-                return Object.prototype.hasOwnProperty.call(t, e);
+            function hasOwnProperty(obj, prop) {
+                return Object.prototype.hasOwnProperty.call(obj, prop);
             }
-            function s(t) {
-                return t.charCodeAt(0);
+            function charCode(c) {
+                return c.charCodeAt(0);
             }
-            var i, o = n, a = t("util");
-            o.unescapeBuffer = function(t, e) {
-                var n, r, i, o, a, u, h = new Buffer(t.length), c = "CHAR";
-                for (o = 0, a = 0; o <= t.length; o++) switch (u = t.charCodeAt(o), c) {
-                  case "CHAR":
-                    switch (u) {
-                      case s("%"):
-                        n = 0, r = 0, c = "HEX0";
+            var QueryString = exports, util = require("util");
+            QueryString.unescapeBuffer = function(s, decodeSpaces) {
+                for (var n, m, hexchar, out = new Buffer(s.length), state = "CHAR", inIndex = 0, outIndex = 0; inIndex <= s.length; inIndex++) {
+                    var c = s.charCodeAt(inIndex);
+                    switch (state) {
+                      case "CHAR":
+                        switch (c) {
+                          case charCode("%"):
+                            n = 0, m = 0, state = "HEX0";
+                            break;
+
+                          case charCode("+"):
+                            decodeSpaces && (c = charCode(" "));
+
+                          default:
+                            out[outIndex++] = c;
+                        }
                         break;
 
-                      case s("+"):
-                        e && (u = s(" "));
-
-                      default:
-                        h[a++] = u;
-                    }
-                    break;
-
-                  case "HEX0":
-                    if (c = "HEX1", i = u, s("0") <= u && u <= s("9")) n = u - s("0"); else if (s("a") <= u && u <= s("f")) n = u - s("a") + 10; else {
-                        if (!(s("A") <= u && u <= s("F"))) {
-                            h[a++] = s("%"), h[a++] = u, c = "CHAR";
-                            break;
+                      case "HEX0":
+                        if (state = "HEX1", hexchar = c, charCode("0") <= c && c <= charCode("9")) n = c - charCode("0"); else if (charCode("a") <= c && c <= charCode("f")) n = c - charCode("a") + 10; else {
+                            if (!(charCode("A") <= c && c <= charCode("F"))) {
+                                out[outIndex++] = charCode("%"), out[outIndex++] = c, state = "CHAR";
+                                break;
+                            }
+                            n = c - charCode("A") + 10;
                         }
-                        n = u - s("A") + 10;
-                    }
-                    break;
+                        break;
 
-                  case "HEX1":
-                    if (c = "CHAR", s("0") <= u && u <= s("9")) r = u - s("0"); else if (s("a") <= u && u <= s("f")) r = u - s("a") + 10; else {
-                        if (!(s("A") <= u && u <= s("F"))) {
-                            h[a++] = s("%"), h[a++] = i, h[a++] = u;
-                            break;
+                      case "HEX1":
+                        if (state = "CHAR", charCode("0") <= c && c <= charCode("9")) m = c - charCode("0"); else if (charCode("a") <= c && c <= charCode("f")) m = c - charCode("a") + 10; else {
+                            if (!(charCode("A") <= c && c <= charCode("F"))) {
+                                out[outIndex++] = charCode("%"), out[outIndex++] = hexchar, out[outIndex++] = c;
+                                break;
+                            }
+                            m = c - charCode("A") + 10;
                         }
-                        r = u - s("A") + 10;
+                        out[outIndex++] = 16 * n + m;
                     }
-                    h[a++] = 16 * n + r;
                 }
-                return h.slice(0, a - 1);
-            }, o.unescape = function(t, e) {
+                return out.slice(0, outIndex - 1);
+            }, QueryString.unescape = function(s, decodeSpaces) {
                 try {
-                    return decodeURIComponent(t);
-                } catch (n) {
-                    return "" + o.unescapeBuffer(t, e);
+                    return decodeURIComponent(s);
+                } catch (e) {
+                    return QueryString.unescapeBuffer(s, decodeSpaces).toString();
                 }
-            }, o.escape = function(t) {
-                return encodeURIComponent(t);
-            }, i = function(t) {
-                return a.isString(t) ? t : a.isBoolean(t) ? t ? "true" : "false" : a.isNumber(t) && isFinite(t) ? t : "";
-            }, o.stringify = o.encode = function(t, e, n, r) {
-                var s, u, h, c, l, f, p, m;
-                if (e = e || "&", n = n || "=", s = o.escape, r && "function" == typeof r.encodeURIComponent && (s = r.encodeURIComponent), 
-                a.isObject(t)) {
-                    for (u = Object.keys(t), h = [], c = 0; c < u.length; c++) if (l = u[c], f = t[l], 
-                    p = s(i(l)) + n, a.isArray(f)) for (m = 0; m < f.length; m++) h.push(p + s(i(f[m]))); else h.push(p + s(i(f)));
-                    return h.join(e);
+            }, QueryString.escape = function(str) {
+                return encodeURIComponent(str);
+            };
+            var stringifyPrimitive = function(v) {
+                return util.isString(v) ? v : util.isBoolean(v) ? v ? "true" : "false" : util.isNumber(v) && isFinite(v) ? v : "";
+            };
+            QueryString.stringify = QueryString.encode = function(obj, sep, eq, options) {
+                sep = sep || "&", eq = eq || "=";
+                var encode = QueryString.escape;
+                if (options && "function" == typeof options.encodeURIComponent && (encode = options.encodeURIComponent), 
+                util.isObject(obj)) {
+                    for (var keys = Object.keys(obj), fields = [], i = 0; i < keys.length; i++) {
+                        var k = keys[i], v = obj[k], ks = encode(stringifyPrimitive(k)) + eq;
+                        if (util.isArray(v)) for (var j = 0; j < v.length; j++) fields.push(ks + encode(stringifyPrimitive(v[j]))); else fields.push(ks + encode(stringifyPrimitive(v)));
+                    }
+                    return fields.join(sep);
                 }
                 return "";
-            }, o.parse = o.decode = function(t, e, n, s) {
-                var i, u, h, c, l, f, p, m, d, g, v, y;
-                if (e = e || "&", n = n || "=", i = {}, !a.isString(t) || 0 === t.length) return i;
-                for (u = /\+/g, t = t.split(e), h = 1e3, s && a.isNumber(s.maxKeys) && (h = s.maxKeys), 
-                c = t.length, h > 0 && c > h && (c = h), l = o.unescape, s && "function" == typeof s.decodeURIComponent && (l = s.decodeURIComponent), 
-                f = 0; c > f; ++f) {
-                    p = t[f].replace(u, "%20"), m = p.indexOf(n), m >= 0 ? (d = p.substr(0, m), g = p.substr(m + 1)) : (d = p, 
-                    g = "");
+            }, QueryString.parse = QueryString.decode = function(qs, sep, eq, options) {
+                sep = sep || "&", eq = eq || "=";
+                var obj = {};
+                if (!util.isString(qs) || 0 === qs.length) return obj;
+                var regexp = /\+/g;
+                qs = qs.split(sep);
+                var maxKeys = 1e3;
+                options && util.isNumber(options.maxKeys) && (maxKeys = options.maxKeys);
+                var len = qs.length;
+                maxKeys > 0 && len > maxKeys && (len = maxKeys);
+                var decode = QueryString.unescape;
+                options && "function" == typeof options.decodeURIComponent && (decode = options.decodeURIComponent);
+                for (var i = 0; len > i; ++i) {
+                    var kstr, vstr, k, v, x = qs[i].replace(regexp, "%20"), idx = x.indexOf(eq);
+                    idx >= 0 ? (kstr = x.substr(0, idx), vstr = x.substr(idx + 1)) : (kstr = x, vstr = "");
                     try {
-                        v = l(d), y = l(g);
-                    } catch (b) {
-                        v = o.unescape(d, !0), y = o.unescape(g, !0);
+                        k = decode(kstr), v = decode(vstr);
+                    } catch (e) {
+                        k = QueryString.unescape(kstr, !0), v = QueryString.unescape(vstr, !0);
                     }
-                    r(i, v) ? a.isArray(i[v]) ? i[v].push(y) : i[v] = [ i[v], y ] : i[v] = y;
+                    hasOwnProperty(obj, k) ? util.isArray(obj[k]) ? obj[k].push(v) : obj[k] = [ obj[k], v ] : obj[k] = v;
                 }
-                return i;
+                return obj;
             };
         };
-    }), e("url", function() {
-        return function(t, e, n) {
+    }), define("url", function(root) {
+        return function(require, module, exports, __dirname, __filename, process, global) {
             "use strict";
-            function r() {
+            function Url() {
                 this.protocol = null, this.slashes = null, this.auth = null, this.host = null, this.port = null, 
                 this.hostname = null, this.hash = null, this.search = null, this.query = null, this.pathname = null, 
                 this.path = null, this.href = null;
             }
-            function s(t, e, n) {
-                if (t && O.isObject(t) && t instanceof r) return t;
-                var s = new r();
-                return s.parse(t, e, n), s;
+            function urlParse(url, parseQueryString, slashesDenoteHost) {
+                if (url && util.isObject(url) && url instanceof Url) return url;
+                var u = new Url();
+                return u.parse(url, parseQueryString, slashesDenoteHost), u;
             }
-            function i(t) {
-                return O.isString(t) && (t = s(t)), t instanceof r ? t.format() : r.prototype.format.call(t);
+            function urlFormat(obj) {
+                return util.isString(obj) && (obj = urlParse(obj)), obj instanceof Url ? obj.format() : Url.prototype.format.call(obj);
             }
-            function o(t, e) {
-                return s(t, !1, !0).resolve(e);
+            function urlResolve(source, relative) {
+                return urlParse(source, !1, !0).resolve(relative);
             }
-            function a(t, e) {
-                return t ? s(t, !1, !0).resolveObject(e) : e;
+            function urlResolveObject(source, relative) {
+                return source ? urlParse(source, !1, !0).resolveObject(relative) : relative;
             }
-            var u, h, c, l, f, p, m, d, g, v, y, b, w, _, j, x = t("punycode"), O = t("util");
-            n.parse = s, n.resolve = o, n.resolveObject = a, n.format = i, n.Url = r, u = /^([a-z0-9.+-]+:)/i, 
-            h = /:[0-9]*$/, c = /^(\/\/?(?!\/)[^\?\s]*)(\?[^\s]*)?$/, l = [ "<", ">", '"', "`", " ", "\r", "\n", "	" ], 
-            f = [ "{", "}", "|", "\\", "^", "`" ].concat(l), p = [ "'" ].concat(f), m = [ "%", "/", "?", ";", "#" ].concat(p), 
-            d = [ "/", "?", "#" ], g = 255, v = /^[+a-z0-9A-Z_-]{0,63}$/, y = /^([+a-z0-9A-Z_-]{0,63})(.*)$/, 
-            b = {
+            var punycode = require("punycode"), util = require("util");
+            exports.parse = urlParse, exports.resolve = urlResolve, exports.resolveObject = urlResolveObject, 
+            exports.format = urlFormat, exports.Url = Url;
+            var protocolPattern = /^([a-z0-9.+-]+:)/i, portPattern = /:[0-9]*$/, simplePathPattern = /^(\/\/?(?!\/)[^\?\s]*)(\?[^\s]*)?$/, delims = [ "<", ">", '"', "`", " ", "\r", "\n", "	" ], unwise = [ "{", "}", "|", "\\", "^", "`" ].concat(delims), autoEscape = [ "'" ].concat(unwise), nonHostChars = [ "%", "/", "?", ";", "#" ].concat(autoEscape), hostEndingChars = [ "/", "?", "#" ], hostnameMaxLen = 255, hostnamePartPattern = /^[+a-z0-9A-Z_-]{0,63}$/, hostnamePartStart = /^([+a-z0-9A-Z_-]{0,63})(.*)$/, unsafeProtocol = {
                 javascript: !0,
                 "javascript:": !0
-            }, w = {
+            }, hostlessProtocol = {
                 javascript: !0,
                 "javascript:": !0
-            }, _ = {
+            }, slashedProtocol = {
                 http: !0,
                 https: !0,
                 ftp: !0,
@@ -596,323 +649,408 @@
                 "ftp:": !0,
                 "gopher:": !0,
                 "file:": !0
-            }, j = t("querystring"), r.prototype.parse = function(t, e, n) {
-                var r, s, i, o, a, h, l, f, A, E, L, S, C, z, U, D, k, I, N, q, T, R, F, H, P, B, $, M, J, Z, G;
-                if (!O.isString(t)) throw new TypeError("Parameter 'url' must be a string, not " + typeof t);
-                if (r = t.indexOf("?"), s = -1 !== r && r < t.indexOf("#") ? "?" : "#", i = t.split(s), 
-                o = /\\/g, i[0] = i[0].replace(o, "/"), t = i.join(s), a = t, a = a.trim(), !n && 1 === t.split("#").length && (h = c.exec(a))) return this.path = a, 
-                this.href = a, this.pathname = h[1], h[2] ? (this.search = h[2], this.query = e ? j.parse(this.search.substr(1)) : this.search.substr(1)) : e && (this.search = "", 
-                this.query = {}), this;
-                if (l = u.exec(a), l && (l = l[0], f = l.toLowerCase(), this.protocol = f, a = a.substr(l.length)), 
-                (n || l || a.match(/^\/\/[^@\/]+@[^@\/]+/)) && (A = "//" === a.substr(0, 2), !A || l && w[l] || (a = a.substr(2), 
-                this.slashes = !0)), !w[l] && (A || l && !_[l])) {
-                    for (E = -1, L = 0; L < d.length; L++) S = a.indexOf(d[L]), -1 !== S && (-1 === E || E > S) && (E = S);
-                    for (z = -1 === E ? a.lastIndexOf("@") : a.lastIndexOf("@", E), -1 !== z && (C = a.slice(0, z), 
-                    a = a.slice(z + 1), this.auth = decodeURIComponent(C)), E = -1, L = 0; L < m.length; L++) S = a.indexOf(m[L]), 
-                    -1 !== S && (-1 === E || E > S) && (E = S);
-                    if (-1 === E && (E = a.length), this.host = a.slice(0, E), a = a.slice(E), this.parseHost(), 
-                    this.hostname = this.hostname || "", U = "[" === this.hostname[0] && "]" === this.hostname[this.hostname.length - 1], 
-                    !U) for (D = this.hostname.split(/\./), L = 0, k = D.length; k > L; L++) if (I = D[L], 
-                    I && !I.match(v)) {
-                        for (N = "", q = 0, T = I.length; T > q; q++) N += I.charCodeAt(q) > 127 ? "x" : I[q];
-                        if (!N.match(v)) {
-                            R = D.slice(0, L), F = D.slice(L + 1), H = I.match(y), H && (R.push(H[1]), F.unshift(H[2])), 
-                            F.length && (a = "/" + F.join(".") + a), this.hostname = R.join(".");
-                            break;
+            }, querystring = require("querystring");
+            Url.prototype.parse = function(url, parseQueryString, slashesDenoteHost) {
+                if (!util.isString(url)) throw new TypeError("Parameter 'url' must be a string, not " + typeof url);
+                var queryIndex = url.indexOf("?"), splitter = -1 !== queryIndex && queryIndex < url.indexOf("#") ? "?" : "#", uSplit = url.split(splitter), slashRegex = /\\/g;
+                uSplit[0] = uSplit[0].replace(slashRegex, "/"), url = uSplit.join(splitter);
+                var rest = url;
+                if (rest = rest.trim(), !slashesDenoteHost && 1 === url.split("#").length) {
+                    var simplePath = simplePathPattern.exec(rest);
+                    if (simplePath) return this.path = rest, this.href = rest, this.pathname = simplePath[1], 
+                    simplePath[2] ? (this.search = simplePath[2], this.query = parseQueryString ? querystring.parse(this.search.substr(1)) : this.search.substr(1)) : parseQueryString && (this.search = "", 
+                    this.query = {}), this;
+                }
+                var proto = protocolPattern.exec(rest);
+                if (proto) {
+                    proto = proto[0];
+                    var lowerProto = proto.toLowerCase();
+                    this.protocol = lowerProto, rest = rest.substr(proto.length);
+                }
+                if (slashesDenoteHost || proto || rest.match(/^\/\/[^@\/]+@[^@\/]+/)) {
+                    var slashes = "//" === rest.substr(0, 2);
+                    !slashes || proto && hostlessProtocol[proto] || (rest = rest.substr(2), this.slashes = !0);
+                }
+                if (!hostlessProtocol[proto] && (slashes || proto && !slashedProtocol[proto])) {
+                    for (var hostEnd = -1, i = 0; i < hostEndingChars.length; i++) {
+                        var hec = rest.indexOf(hostEndingChars[i]);
+                        -1 !== hec && (-1 === hostEnd || hostEnd > hec) && (hostEnd = hec);
+                    }
+                    var auth, atSign;
+                    atSign = -1 === hostEnd ? rest.lastIndexOf("@") : rest.lastIndexOf("@", hostEnd), 
+                    -1 !== atSign && (auth = rest.slice(0, atSign), rest = rest.slice(atSign + 1), this.auth = decodeURIComponent(auth)), 
+                    hostEnd = -1;
+                    for (var i = 0; i < nonHostChars.length; i++) {
+                        var hec = rest.indexOf(nonHostChars[i]);
+                        -1 !== hec && (-1 === hostEnd || hostEnd > hec) && (hostEnd = hec);
+                    }
+                    -1 === hostEnd && (hostEnd = rest.length), this.host = rest.slice(0, hostEnd), rest = rest.slice(hostEnd), 
+                    this.parseHost(), this.hostname = this.hostname || "";
+                    var ipv6Hostname = "[" === this.hostname[0] && "]" === this.hostname[this.hostname.length - 1];
+                    if (!ipv6Hostname) for (var hostparts = this.hostname.split(/\./), i = 0, l = hostparts.length; l > i; i++) {
+                        var part = hostparts[i];
+                        if (part && !part.match(hostnamePartPattern)) {
+                            for (var newpart = "", j = 0, k = part.length; k > j; j++) newpart += part.charCodeAt(j) > 127 ? "x" : part[j];
+                            if (!newpart.match(hostnamePartPattern)) {
+                                var validParts = hostparts.slice(0, i), notHost = hostparts.slice(i + 1), bit = part.match(hostnamePartStart);
+                                bit && (validParts.push(bit[1]), notHost.unshift(bit[2])), notHost.length && (rest = "/" + notHost.join(".") + rest), 
+                                this.hostname = validParts.join(".");
+                                break;
+                            }
                         }
                     }
-                    this.hostname = this.hostname.length > g ? "" : this.hostname.toLowerCase(), U || (this.hostname = x.toASCII(this.hostname)), 
-                    P = this.port ? ":" + this.port : "", B = this.hostname || "", this.host = B + P, 
-                    this.href += this.host, U && (this.hostname = this.hostname.substr(1, this.hostname.length - 2), 
-                    "/" !== a[0] && (a = "/" + a));
+                    this.hostname = this.hostname.length > hostnameMaxLen ? "" : this.hostname.toLowerCase(), 
+                    ipv6Hostname || (this.hostname = punycode.toASCII(this.hostname));
+                    var p = this.port ? ":" + this.port : "", h = this.hostname || "";
+                    this.host = h + p, this.href += this.host, ipv6Hostname && (this.hostname = this.hostname.substr(1, this.hostname.length - 2), 
+                    "/" !== rest[0] && (rest = "/" + rest));
                 }
-                if (!b[f]) for (L = 0, k = p.length; k > L; L++) $ = p[L], -1 !== a.indexOf($) && (M = encodeURIComponent($), 
-                M === $ && (M = escape($)), a = a.split($).join(M));
-                return J = a.indexOf("#"), -1 !== J && (this.hash = a.substr(J), a = a.slice(0, J)), 
-                Z = a.indexOf("?"), -1 !== Z ? (this.search = a.substr(Z), this.query = a.substr(Z + 1), 
-                e && (this.query = j.parse(this.query)), a = a.slice(0, Z)) : e && (this.search = "", 
-                this.query = {}), a && (this.pathname = a), _[f] && this.hostname && !this.pathname && (this.pathname = "/"), 
-                (this.pathname || this.search) && (P = this.pathname || "", G = this.search || "", 
-                this.path = P + G), this.href = this.format(), this;
-            }, r.prototype.format = function() {
-                var t, e, n, r, s, i, o = this.auth || "";
-                return o && (o = encodeURIComponent(o), o = o.replace(/%3A/i, ":"), o += "@"), t = this.protocol || "", 
-                e = this.pathname || "", n = this.hash || "", r = !1, s = "", this.host ? r = o + this.host : this.hostname && (r = o + (-1 === this.hostname.indexOf(":") ? this.hostname : "[" + this.hostname + "]"), 
-                this.port && (r += ":" + this.port)), this.query && O.isObject(this.query) && Object.keys(this.query).length && (s = j.stringify(this.query)), 
-                i = this.search || s && "?" + s || "", t && ":" !== t.substr(-1) && (t += ":"), 
-                this.slashes || (!t || _[t]) && r !== !1 ? (r = "//" + (r || ""), e && "/" !== e.charAt(0) && (e = "/" + e)) : r || (r = ""), 
-                n && "#" !== n.charAt(0) && (n = "#" + n), i && "?" !== i.charAt(0) && (i = "?" + i), 
-                e = e.replace(/[?#]/g, function(t) {
-                    return encodeURIComponent(t);
-                }), i = i.replace("#", "%23"), t + r + e + i + n;
-            }, r.prototype.resolve = function(t) {
-                return this.resolveObject(s(t, !1, !0)).format();
-            }, r.prototype.resolveObject = function(t) {
-                var e, n, s, i, o, a, u, h, c, l, f, p, m, d, g, v, y, b, j, x, A, E, L, S, C, z;
-                for (O.isString(t) && (e = new r(), e.parse(t, !1, !0), t = e), n = new r(), s = Object.keys(this), 
-                i = 0; i < s.length; i++) o = s[i], n[o] = this[o];
-                if (n.hash = t.hash, "" === t.href) return n.href = n.format(), n;
-                if (t.slashes && !t.protocol) {
-                    for (a = Object.keys(t), u = 0; u < a.length; u++) h = a[u], "protocol" !== h && (n[h] = t[h]);
-                    return _[n.protocol] && n.hostname && !n.pathname && (n.path = n.pathname = "/"), 
-                    n.href = n.format(), n;
-                }
-                if (t.protocol && t.protocol !== n.protocol) {
-                    if (!_[t.protocol]) {
-                        for (c = Object.keys(t), l = 0; l < c.length; l++) f = c[l], n[f] = t[f];
-                        return n.href = n.format(), n;
+                if (!unsafeProtocol[lowerProto]) for (var i = 0, l = autoEscape.length; l > i; i++) {
+                    var ae = autoEscape[i];
+                    if (-1 !== rest.indexOf(ae)) {
+                        var esc = encodeURIComponent(ae);
+                        esc === ae && (esc = escape(ae)), rest = rest.split(ae).join(esc);
                     }
-                    if (n.protocol = t.protocol, t.host || w[t.protocol]) n.pathname = t.pathname; else {
-                        for (p = (t.pathname || "").split("/"); p.length && !(t.host = p.shift()); ) ;
-                        t.host || (t.host = ""), t.hostname || (t.hostname = ""), "" !== p[0] && p.unshift(""), 
-                        p.length < 2 && p.unshift(""), n.pathname = p.join("/");
-                    }
-                    return n.search = t.search, n.query = t.query, n.host = t.host || "", n.auth = t.auth, 
-                    n.hostname = t.hostname || t.host, n.port = t.port, (n.pathname || n.search) && (m = n.pathname || "", 
-                    d = n.search || "", n.path = m + d), n.slashes = n.slashes || t.slashes, n.href = n.format(), 
-                    n;
                 }
-                if (g = n.pathname && "/" === n.pathname.charAt(0), v = t.host || t.pathname && "/" === t.pathname.charAt(0), 
-                y = v || g || n.host && t.pathname, b = y, j = n.pathname && n.pathname.split("/") || [], 
-                p = t.pathname && t.pathname.split("/") || [], x = n.protocol && !_[n.protocol], 
-                x && (n.hostname = "", n.port = null, n.host && ("" === j[0] ? j[0] = n.host : j.unshift(n.host)), 
-                n.host = "", t.protocol && (t.hostname = null, t.port = null, t.host && ("" === p[0] ? p[0] = t.host : p.unshift(t.host)), 
-                t.host = null), y = y && ("" === p[0] || "" === j[0])), v) n.host = t.host || "" === t.host ? t.host : n.host, 
-                n.hostname = t.hostname || "" === t.hostname ? t.hostname : n.hostname, n.search = t.search, 
-                n.query = t.query, j = p; else if (p.length) j || (j = []), j.pop(), j = j.concat(p), 
-                n.search = t.search, n.query = t.query; else if (!O.isNullOrUndefined(t.search)) return x && (n.hostname = n.host = j.shift(), 
-                A = n.host && n.host.indexOf("@") > 0 ? n.host.split("@") : !1, A && (n.auth = A.shift(), 
-                n.host = n.hostname = A.shift())), n.search = t.search, n.query = t.query, O.isNull(n.pathname) && O.isNull(n.search) || (n.path = (n.pathname ? n.pathname : "") + (n.search ? n.search : "")), 
-                n.href = n.format(), n;
-                if (!j.length) return n.pathname = null, n.path = n.search ? "/" + n.search : null, 
-                n.href = n.format(), n;
-                for (E = j.slice(-1)[0], L = (n.host || t.host || j.length > 1) && ("." === E || ".." === E) || "" === E, 
-                S = 0, C = j.length; C >= 0; C--) E = j[C], "." === E ? j.splice(C, 1) : ".." === E ? (j.splice(C, 1), 
-                S++) : S && (j.splice(C, 1), S--);
-                if (!y && !b) for (;S--; S) j.unshift("..");
-                return !y || "" === j[0] || j[0] && "/" === j[0].charAt(0) || j.unshift(""), L && "/" !== j.join("/").substr(-1) && j.push(""), 
-                z = "" === j[0] || j[0] && "/" === j[0].charAt(0), x && (n.hostname = n.host = z ? "" : j.length ? j.shift() : "", 
-                A = n.host && n.host.indexOf("@") > 0 ? n.host.split("@") : !1, A && (n.auth = A.shift(), 
-                n.host = n.hostname = A.shift())), y = y || n.host && j.length, y && !z && j.unshift(""), 
-                j.length ? n.pathname = j.join("/") : (n.pathname = null, n.path = null), O.isNull(n.pathname) && O.isNull(n.search) || (n.path = (n.pathname ? n.pathname : "") + (n.search ? n.search : "")), 
-                n.auth = t.auth || n.auth, n.slashes = n.slashes || t.slashes, n.href = n.format(), 
-                n;
-            }, r.prototype.parseHost = function() {
-                var t = this.host, e = h.exec(t);
-                e && (e = e[0], ":" !== e && (this.port = e.substr(1)), t = t.substr(0, t.length - e.length)), 
-                t && (this.hostname = t);
+                var hash = rest.indexOf("#");
+                -1 !== hash && (this.hash = rest.substr(hash), rest = rest.slice(0, hash));
+                var qm = rest.indexOf("?");
+                if (-1 !== qm ? (this.search = rest.substr(qm), this.query = rest.substr(qm + 1), 
+                parseQueryString && (this.query = querystring.parse(this.query)), rest = rest.slice(0, qm)) : parseQueryString && (this.search = "", 
+                this.query = {}), rest && (this.pathname = rest), slashedProtocol[lowerProto] && this.hostname && !this.pathname && (this.pathname = "/"), 
+                this.pathname || this.search) {
+                    var p = this.pathname || "", s = this.search || "";
+                    this.path = p + s;
+                }
+                return this.href = this.format(), this;
+            }, Url.prototype.format = function() {
+                var auth = this.auth || "";
+                auth && (auth = encodeURIComponent(auth), auth = auth.replace(/%3A/i, ":"), auth += "@");
+                var protocol = this.protocol || "", pathname = this.pathname || "", hash = this.hash || "", host = !1, query = "";
+                this.host ? host = auth + this.host : this.hostname && (host = auth + (-1 === this.hostname.indexOf(":") ? this.hostname : "[" + this.hostname + "]"), 
+                this.port && (host += ":" + this.port)), this.query && util.isObject(this.query) && Object.keys(this.query).length && (query = querystring.stringify(this.query));
+                var search = this.search || query && "?" + query || "";
+                return protocol && ":" !== protocol.substr(-1) && (protocol += ":"), this.slashes || (!protocol || slashedProtocol[protocol]) && host !== !1 ? (host = "//" + (host || ""), 
+                pathname && "/" !== pathname.charAt(0) && (pathname = "/" + pathname)) : host || (host = ""), 
+                hash && "#" !== hash.charAt(0) && (hash = "#" + hash), search && "?" !== search.charAt(0) && (search = "?" + search), 
+                pathname = pathname.replace(/[?#]/g, function(match) {
+                    return encodeURIComponent(match);
+                }), search = search.replace("#", "%23"), protocol + host + pathname + search + hash;
+            }, Url.prototype.resolve = function(relative) {
+                return this.resolveObject(urlParse(relative, !1, !0)).format();
+            }, Url.prototype.resolveObject = function(relative) {
+                if (util.isString(relative)) {
+                    var rel = new Url();
+                    rel.parse(relative, !1, !0), relative = rel;
+                }
+                for (var result = new Url(), tkeys = Object.keys(this), tk = 0; tk < tkeys.length; tk++) {
+                    var tkey = tkeys[tk];
+                    result[tkey] = this[tkey];
+                }
+                if (result.hash = relative.hash, "" === relative.href) return result.href = result.format(), 
+                result;
+                if (relative.slashes && !relative.protocol) {
+                    for (var rkeys = Object.keys(relative), rk = 0; rk < rkeys.length; rk++) {
+                        var rkey = rkeys[rk];
+                        "protocol" !== rkey && (result[rkey] = relative[rkey]);
+                    }
+                    return slashedProtocol[result.protocol] && result.hostname && !result.pathname && (result.path = result.pathname = "/"), 
+                    result.href = result.format(), result;
+                }
+                if (relative.protocol && relative.protocol !== result.protocol) {
+                    if (!slashedProtocol[relative.protocol]) {
+                        for (var keys = Object.keys(relative), v = 0; v < keys.length; v++) {
+                            var k = keys[v];
+                            result[k] = relative[k];
+                        }
+                        return result.href = result.format(), result;
+                    }
+                    if (result.protocol = relative.protocol, relative.host || hostlessProtocol[relative.protocol]) result.pathname = relative.pathname; else {
+                        for (var relPath = (relative.pathname || "").split("/"); relPath.length && !(relative.host = relPath.shift()); ) ;
+                        relative.host || (relative.host = ""), relative.hostname || (relative.hostname = ""), 
+                        "" !== relPath[0] && relPath.unshift(""), relPath.length < 2 && relPath.unshift(""), 
+                        result.pathname = relPath.join("/");
+                    }
+                    if (result.search = relative.search, result.query = relative.query, result.host = relative.host || "", 
+                    result.auth = relative.auth, result.hostname = relative.hostname || relative.host, 
+                    result.port = relative.port, result.pathname || result.search) {
+                        var p = result.pathname || "", s = result.search || "";
+                        result.path = p + s;
+                    }
+                    return result.slashes = result.slashes || relative.slashes, result.href = result.format(), 
+                    result;
+                }
+                var isSourceAbs = result.pathname && "/" === result.pathname.charAt(0), isRelAbs = relative.host || relative.pathname && "/" === relative.pathname.charAt(0), mustEndAbs = isRelAbs || isSourceAbs || result.host && relative.pathname, removeAllDots = mustEndAbs, srcPath = result.pathname && result.pathname.split("/") || [], relPath = relative.pathname && relative.pathname.split("/") || [], psychotic = result.protocol && !slashedProtocol[result.protocol];
+                if (psychotic && (result.hostname = "", result.port = null, result.host && ("" === srcPath[0] ? srcPath[0] = result.host : srcPath.unshift(result.host)), 
+                result.host = "", relative.protocol && (relative.hostname = null, relative.port = null, 
+                relative.host && ("" === relPath[0] ? relPath[0] = relative.host : relPath.unshift(relative.host)), 
+                relative.host = null), mustEndAbs = mustEndAbs && ("" === relPath[0] || "" === srcPath[0])), 
+                isRelAbs) result.host = relative.host || "" === relative.host ? relative.host : result.host, 
+                result.hostname = relative.hostname || "" === relative.hostname ? relative.hostname : result.hostname, 
+                result.search = relative.search, result.query = relative.query, srcPath = relPath; else if (relPath.length) srcPath || (srcPath = []), 
+                srcPath.pop(), srcPath = srcPath.concat(relPath), result.search = relative.search, 
+                result.query = relative.query; else if (!util.isNullOrUndefined(relative.search)) {
+                    if (psychotic) {
+                        result.hostname = result.host = srcPath.shift();
+                        var authInHost = result.host && result.host.indexOf("@") > 0 ? result.host.split("@") : !1;
+                        authInHost && (result.auth = authInHost.shift(), result.host = result.hostname = authInHost.shift());
+                    }
+                    return result.search = relative.search, result.query = relative.query, util.isNull(result.pathname) && util.isNull(result.search) || (result.path = (result.pathname ? result.pathname : "") + (result.search ? result.search : "")), 
+                    result.href = result.format(), result;
+                }
+                if (!srcPath.length) return result.pathname = null, result.path = result.search ? "/" + result.search : null, 
+                result.href = result.format(), result;
+                for (var last = srcPath.slice(-1)[0], hasTrailingSlash = (result.host || relative.host || srcPath.length > 1) && ("." === last || ".." === last) || "" === last, up = 0, i = srcPath.length; i >= 0; i--) last = srcPath[i], 
+                "." === last ? srcPath.splice(i, 1) : ".." === last ? (srcPath.splice(i, 1), up++) : up && (srcPath.splice(i, 1), 
+                up--);
+                if (!mustEndAbs && !removeAllDots) for (;up--; up) srcPath.unshift("..");
+                !mustEndAbs || "" === srcPath[0] || srcPath[0] && "/" === srcPath[0].charAt(0) || srcPath.unshift(""), 
+                hasTrailingSlash && "/" !== srcPath.join("/").substr(-1) && srcPath.push("");
+                var isAbsolute = "" === srcPath[0] || srcPath[0] && "/" === srcPath[0].charAt(0);
+                if (psychotic) {
+                    result.hostname = result.host = isAbsolute ? "" : srcPath.length ? srcPath.shift() : "";
+                    var authInHost = result.host && result.host.indexOf("@") > 0 ? result.host.split("@") : !1;
+                    authInHost && (result.auth = authInHost.shift(), result.host = result.hostname = authInHost.shift());
+                }
+                return mustEndAbs = mustEndAbs || result.host && srcPath.length, mustEndAbs && !isAbsolute && srcPath.unshift(""), 
+                srcPath.length ? result.pathname = srcPath.join("/") : (result.pathname = null, 
+                result.path = null), util.isNull(result.pathname) && util.isNull(result.search) || (result.path = (result.pathname ? result.pathname : "") + (result.search ? result.search : "")), 
+                result.auth = relative.auth || result.auth, result.slashes = result.slashes || relative.slashes, 
+                result.href = result.format(), result;
+            }, Url.prototype.parseHost = function() {
+                var host = this.host, port = portPattern.exec(host);
+                port && (port = port[0], ":" !== port && (this.port = port.substr(1)), host = host.substr(0, host.length - port.length)), 
+                host && (this.hostname = host);
             };
         };
-    }), e("util", function() {
-        return function(t, e, n, r, s, i, o) {
+    }), define("util", function(root) {
+        return function(require, module, exports, __dirname, __filename, process, global) {
             "use strict";
-            function a(t, e) {
-                var r = {
+            function inspect(obj, opts) {
+                var ctx = {
                     seen: [],
-                    stylize: h
+                    stylize: stylizeNoColor
                 };
-                return arguments.length >= 3 && (r.depth = arguments[2]), arguments.length >= 4 && (r.colors = arguments[3]), 
-                y(e) ? r.showHidden = e : e && n._extend(r, e), O(r.showHidden) && (r.showHidden = !1), 
-                O(r.depth) && (r.depth = 2), O(r.colors) && (r.colors = !1), O(r.customInspect) && (r.customInspect = !0), 
-                r.colors && (r.stylize = u), l(r, t, r.depth);
+                return arguments.length >= 3 && (ctx.depth = arguments[2]), arguments.length >= 4 && (ctx.colors = arguments[3]), 
+                isBoolean(opts) ? ctx.showHidden = opts : opts && exports._extend(ctx, opts), isUndefined(ctx.showHidden) && (ctx.showHidden = !1), 
+                isUndefined(ctx.depth) && (ctx.depth = 2), isUndefined(ctx.colors) && (ctx.colors = !1), 
+                isUndefined(ctx.customInspect) && (ctx.customInspect = !0), ctx.colors && (ctx.stylize = stylizeWithColor), 
+                formatValue(ctx, obj, ctx.depth);
             }
-            function u(t, e) {
-                var n = a.styles[e];
-                return n ? "[" + a.colors[n][0] + "m" + t + "[" + a.colors[n][1] + "m" : t;
+            function stylizeWithColor(str, styleType) {
+                var style = inspect.styles[styleType];
+                return style ? "[" + inspect.colors[style][0] + "m" + str + "[" + inspect.colors[style][1] + "m" : str;
             }
-            function h(t) {
-                return t;
+            function stylizeNoColor(str, styleType) {
+                return str;
             }
-            function c(t) {
-                var e = {};
-                return t.forEach(function(t) {
-                    e[t] = !0;
-                }), e;
+            function arrayToHash(array) {
+                var hash = {};
+                return array.forEach(function(val, idx) {
+                    hash[val] = !0;
+                }), hash;
             }
-            function l(t, e, r) {
-                var s, i, o, a, u, h, b, w, x, O, E, z;
-                if (t.customInspect && e && C(e.inspect) && e.inspect !== n.inspect && (!e.constructor || e.constructor.prototype !== e)) return s = e.inspect(r, t), 
-                j(s) || (s = l(t, s, r)), s;
-                if (i = f(t, e)) return i;
-                o = Object.keys(e), a = c(o), t.showHidden && (o = Object.getOwnPropertyNames(e)), 
-                h = e;
+            function formatValue(ctx, value, recurseTimes) {
+                if (ctx.customInspect && value && isFunction(value.inspect) && value.inspect !== exports.inspect && (!value.constructor || value.constructor.prototype !== value)) {
+                    var ret = value.inspect(recurseTimes, ctx);
+                    return isString(ret) || (ret = formatValue(ctx, ret, recurseTimes)), ret;
+                }
+                var primitive = formatPrimitive(ctx, value);
+                if (primitive) return primitive;
+                var keys = Object.keys(value), visibleKeys = arrayToHash(keys);
+                ctx.showHidden && (keys = Object.getOwnPropertyNames(value));
+                var formatted, raw = value;
                 try {
-                    L(e) || (h = e.valueOf());
-                } catch (U) {}
-                if (j(h) && (o = o.filter(function(t) {
-                    return !(t >= 0 && t < h.length);
-                })), 0 === o.length) {
-                    if (C(e)) return b = e.name ? ": " + e.name : "", t.stylize("[Function" + b + "]", "special");
-                    if (A(e)) return t.stylize(RegExp.prototype.toString.call(e), "regexp");
-                    if (L(e)) return t.stylize(Date.prototype.toString.call(e), "date");
-                    if (S(e)) return m(e);
-                    if (j(h)) return u = p(t, h), t.stylize("[String: " + u + "]", "string");
-                    if (_(h)) return u = p(t, h), t.stylize("[Number: " + u + "]", "number");
-                    if (y(h)) return u = p(t, h), t.stylize("[Boolean: " + u + "]", "boolean");
+                    isDate(value) || (raw = value.valueOf());
+                } catch (e) {}
+                if (isString(raw) && (keys = keys.filter(function(key) {
+                    return !(key >= 0 && key < raw.length);
+                })), 0 === keys.length) {
+                    if (isFunction(value)) {
+                        var name = value.name ? ": " + value.name : "";
+                        return ctx.stylize("[Function" + name + "]", "special");
+                    }
+                    if (isRegExp(value)) return ctx.stylize(RegExp.prototype.toString.call(value), "regexp");
+                    if (isDate(value)) return ctx.stylize(Date.prototype.toString.call(value), "date");
+                    if (isError(value)) return formatError(value);
+                    if (isString(raw)) return formatted = formatPrimitiveNoColor(ctx, raw), ctx.stylize("[String: " + formatted + "]", "string");
+                    if (isNumber(raw)) return formatted = formatPrimitiveNoColor(ctx, raw), ctx.stylize("[Number: " + formatted + "]", "number");
+                    if (isBoolean(raw)) return formatted = formatPrimitiveNoColor(ctx, raw), ctx.stylize("[Boolean: " + formatted + "]", "boolean");
                 }
-                return w = "", x = !1, O = [ "{", "}" ], R(e) && (x = !0, O = [ "[", "]" ]), C(e) && (E = e.name ? ": " + e.name : "", 
-                w = " [Function" + E + "]"), A(e) && (w = " " + RegExp.prototype.toString.call(e)), 
-                L(e) && (w = " " + Date.prototype.toUTCString.call(e)), S(e) && (w = " " + m(e)), 
-                j(h) && (u = p(t, h), w = " [String: " + u + "]"), _(h) && (u = p(t, h), w = " [Number: " + u + "]"), 
-                y(h) && (u = p(t, h), w = " [Boolean: " + u + "]"), 0 !== o.length || x && 0 !== e.length ? 0 > r ? A(e) ? t.stylize(RegExp.prototype.toString.call(e), "regexp") : t.stylize("[Object]", "special") : (t.seen.push(e), 
-                z = x ? d(t, e, r, a, o) : o.map(function(n) {
-                    return g(t, e, r, a, n, x);
-                }), t.seen.pop(), v(z, w, O)) : O[0] + w + O[1];
-            }
-            function f(t, e) {
-                if (O(e)) return t.stylize("undefined", "undefined");
-                if (j(e)) {
-                    var n = "'" + JSON.stringify(e).replace(/^"|"$/g, "").replace(/'/g, "\\'").replace(/\\"/g, '"') + "'";
-                    return t.stylize(n, "string");
+                var base = "", array = !1, braces = [ "{", "}" ];
+                if (isArray(value) && (array = !0, braces = [ "[", "]" ]), isFunction(value)) {
+                    var n = value.name ? ": " + value.name : "";
+                    base = " [Function" + n + "]";
                 }
-                return _(e) ? 0 === e && 0 > 1 / e ? t.stylize("-0", "number") : t.stylize("" + e, "number") : y(e) ? t.stylize("" + e, "boolean") : b(e) ? t.stylize("null", "null") : x(e) ? t.stylize("" + e, "symbol") : void 0;
+                if (isRegExp(value) && (base = " " + RegExp.prototype.toString.call(value)), isDate(value) && (base = " " + Date.prototype.toUTCString.call(value)), 
+                isError(value) && (base = " " + formatError(value)), isString(raw) && (formatted = formatPrimitiveNoColor(ctx, raw), 
+                base = " [String: " + formatted + "]"), isNumber(raw) && (formatted = formatPrimitiveNoColor(ctx, raw), 
+                base = " [Number: " + formatted + "]"), isBoolean(raw) && (formatted = formatPrimitiveNoColor(ctx, raw), 
+                base = " [Boolean: " + formatted + "]"), 0 === keys.length && (!array || 0 === value.length)) return braces[0] + base + braces[1];
+                if (0 > recurseTimes) return isRegExp(value) ? ctx.stylize(RegExp.prototype.toString.call(value), "regexp") : ctx.stylize("[Object]", "special");
+                ctx.seen.push(value);
+                var output;
+                return output = array ? formatArray(ctx, value, recurseTimes, visibleKeys, keys) : keys.map(function(key) {
+                    return formatProperty(ctx, value, recurseTimes, visibleKeys, key, array);
+                }), ctx.seen.pop(), reduceToSingleString(output, base, braces);
             }
-            function p(t, e) {
-                var n, r = t.stylize;
-                return t.stylize = h, n = f(t, e), t.stylize = r, n;
-            }
-            function m(t) {
-                return "[" + Error.prototype.toString.call(t) + "]";
-            }
-            function d(t, e, n, r, s) {
-                var i, o, a = [];
-                for (i = 0, o = e.length; o > i; ++i) a.push(N(e, i + "") ? g(t, e, n, r, i + "", !0) : "");
-                return s.forEach(function(s) {
-                    s.match(/^\d+$/) || a.push(g(t, e, n, r, s, !0));
-                }), a;
-            }
-            function g(t, e, n, r, s, i) {
-                var o, a, u;
-                if (u = Object.getOwnPropertyDescriptor(e, s) || {
-                    value: e[s]
-                }, u.get ? a = u.set ? t.stylize("[Getter/Setter]", "special") : t.stylize("[Getter]", "special") : u.set && (a = t.stylize("[Setter]", "special")), 
-                N(r, s) || (o = "[" + s + "]"), a || (t.seen.indexOf(u.value) < 0 ? (a = b(n) ? l(t, u.value, null) : l(t, u.value, n - 1), 
-                a.indexOf("\n") > -1 && (a = i ? a.split("\n").map(function(t) {
-                    return "  " + t;
-                }).join("\n").substr(2) : "\n" + a.split("\n").map(function(t) {
-                    return "   " + t;
-                }).join("\n"))) : a = t.stylize("[Circular]", "special")), O(o)) {
-                    if (i && s.match(/^\d+$/)) return a;
-                    o = JSON.stringify("" + s), o.match(/^"([a-zA-Z_][a-zA-Z_0-9]*)"$/) ? (o = o.substr(1, o.length - 2), 
-                    o = t.stylize(o, "name")) : (o = o.replace(/'/g, "\\'").replace(/\\"/g, '"').replace(/(^"|"$)/g, "'").replace(/\\\\/g, "\\"), 
-                    o = t.stylize(o, "string"));
+            function formatPrimitive(ctx, value) {
+                if (isUndefined(value)) return ctx.stylize("undefined", "undefined");
+                if (isString(value)) {
+                    var simple = "'" + JSON.stringify(value).replace(/^"|"$/g, "").replace(/'/g, "\\'").replace(/\\"/g, '"') + "'";
+                    return ctx.stylize(simple, "string");
                 }
-                return o + ": " + a;
+                return isNumber(value) ? 0 === value && 0 > 1 / value ? ctx.stylize("-0", "number") : ctx.stylize("" + value, "number") : isBoolean(value) ? ctx.stylize("" + value, "boolean") : isNull(value) ? ctx.stylize("null", "null") : isSymbol(value) ? ctx.stylize(value.toString(), "symbol") : void 0;
             }
-            function v(t, e, n) {
-                var r = t.reduce(function(t, e) {
-                    return t + e.replace(/\u001b\[\d\d?m/g, "").length + 1;
+            function formatPrimitiveNoColor(ctx, value) {
+                var stylize = ctx.stylize;
+                ctx.stylize = stylizeNoColor;
+                var str = formatPrimitive(ctx, value);
+                return ctx.stylize = stylize, str;
+            }
+            function formatError(value) {
+                return "[" + Error.prototype.toString.call(value) + "]";
+            }
+            function formatArray(ctx, value, recurseTimes, visibleKeys, keys) {
+                for (var output = [], i = 0, l = value.length; l > i; ++i) output.push(hasOwnProperty(value, String(i)) ? formatProperty(ctx, value, recurseTimes, visibleKeys, String(i), !0) : "");
+                return keys.forEach(function(key) {
+                    key.match(/^\d+$/) || output.push(formatProperty(ctx, value, recurseTimes, visibleKeys, key, !0));
+                }), output;
+            }
+            function formatProperty(ctx, value, recurseTimes, visibleKeys, key, array) {
+                var name, str, desc;
+                if (desc = Object.getOwnPropertyDescriptor(value, key) || {
+                    value: value[key]
+                }, desc.get ? str = desc.set ? ctx.stylize("[Getter/Setter]", "special") : ctx.stylize("[Getter]", "special") : desc.set && (str = ctx.stylize("[Setter]", "special")), 
+                hasOwnProperty(visibleKeys, key) || (name = "[" + key + "]"), str || (ctx.seen.indexOf(desc.value) < 0 ? (str = isNull(recurseTimes) ? formatValue(ctx, desc.value, null) : formatValue(ctx, desc.value, recurseTimes - 1), 
+                str.indexOf("\n") > -1 && (str = array ? str.split("\n").map(function(line) {
+                    return "  " + line;
+                }).join("\n").substr(2) : "\n" + str.split("\n").map(function(line) {
+                    return "   " + line;
+                }).join("\n"))) : str = ctx.stylize("[Circular]", "special")), isUndefined(name)) {
+                    if (array && key.match(/^\d+$/)) return str;
+                    name = JSON.stringify("" + key), name.match(/^"([a-zA-Z_][a-zA-Z_0-9]*)"$/) ? (name = name.substr(1, name.length - 2), 
+                    name = ctx.stylize(name, "name")) : (name = name.replace(/'/g, "\\'").replace(/\\"/g, '"').replace(/(^"|"$)/g, "'").replace(/\\\\/g, "\\"), 
+                    name = ctx.stylize(name, "string"));
+                }
+                return name + ": " + str;
+            }
+            function reduceToSingleString(output, base, braces) {
+                var length = output.reduce(function(prev, cur) {
+                    return prev + cur.replace(/\u001b\[\d\d?m/g, "").length + 1;
                 }, 0);
-                return r > 60 ? n[0] + ("" === e ? "" : e + "\n ") + " " + t.join(",\n  ") + " " + n[1] : n[0] + e + " " + t.join(", ") + " " + n[1];
+                return length > 60 ? braces[0] + ("" === base ? "" : base + "\n ") + " " + output.join(",\n  ") + " " + braces[1] : braces[0] + base + " " + output.join(", ") + " " + braces[1];
             }
-            function y(t) {
-                return "boolean" == typeof t;
+            function isBoolean(arg) {
+                return "boolean" == typeof arg;
             }
-            function b(t) {
-                return null === t;
+            function isNull(arg) {
+                return null === arg;
             }
-            function w(t) {
-                return null == t;
+            function isNullOrUndefined(arg) {
+                return null == arg;
             }
-            function _(t) {
-                return "number" == typeof t;
+            function isNumber(arg) {
+                return "number" == typeof arg;
             }
-            function j(t) {
-                return "string" == typeof t;
+            function isString(arg) {
+                return "string" == typeof arg;
             }
-            function x(t) {
-                return "symbol" == typeof t;
+            function isSymbol(arg) {
+                return "symbol" == typeof arg;
             }
-            function O(t) {
-                return void 0 === t;
+            function isUndefined(arg) {
+                return void 0 === arg;
             }
-            function A(t) {
-                return E(t) && "[object RegExp]" === D(t);
+            function isRegExp(re) {
+                return isObject(re) && "[object RegExp]" === objectToString(re);
             }
-            function E(t) {
-                return "object" == typeof t && null !== t;
+            function isObject(arg) {
+                return "object" == typeof arg && null !== arg;
             }
-            function L(t) {
-                return E(t) && "[object Date]" === D(t);
+            function isDate(d) {
+                return isObject(d) && "[object Date]" === objectToString(d);
             }
-            function S(t) {
-                return E(t) && ("[object Error]" === D(t) || t instanceof Error);
+            function isError(e) {
+                return isObject(e) && ("[object Error]" === objectToString(e) || e instanceof Error);
             }
-            function C(t) {
-                return "function" == typeof t;
+            function isFunction(arg) {
+                return "function" == typeof arg;
             }
-            function z(t) {
-                return null === t || "boolean" == typeof t || "number" == typeof t || "string" == typeof t || "symbol" == typeof t || void 0 === t;
+            function isPrimitive(arg) {
+                return null === arg || "boolean" == typeof arg || "number" == typeof arg || "string" == typeof arg || "symbol" == typeof arg || "undefined" == typeof arg;
             }
-            function U(t) {
-                return t instanceof Buffer;
+            function isBuffer(arg) {
+                return arg instanceof Buffer;
             }
-            function D(t) {
-                return Object.prototype.toString.call(t);
+            function objectToString(o) {
+                return Object.prototype.toString.call(o);
             }
-            function k(t) {
-                return 10 > t ? "0" + t.toString(10) : t.toString(10);
+            function pad(n) {
+                return 10 > n ? "0" + n.toString(10) : n.toString(10);
             }
-            function I() {
-                var t = new Date(), e = [ k(t.getHours()), k(t.getMinutes()), k(t.getSeconds()) ].join(":");
-                return [ t.getDate(), F[t.getMonth()], e ].join(" ");
+            function timestamp() {
+                var d = new Date(), time = [ pad(d.getHours()), pad(d.getMinutes()), pad(d.getSeconds()) ].join(":");
+                return [ d.getDate(), months[d.getMonth()], time ].join(" ");
             }
-            function N(t, e) {
-                return Object.prototype.hasOwnProperty.call(t, e);
+            function hasOwnProperty(obj, prop) {
+                return Object.prototype.hasOwnProperty.call(obj, prop);
             }
-            var q, T, R, F, H, P = /%[sdj%]/g;
-            n.format = function(t) {
-                var e, n, r, s, i, o;
-                if (!j(t)) {
-                    for (e = [], n = 0; n < arguments.length; n++) e.push(a(arguments[n]));
-                    return e.join(" ");
+            var formatRegExp = /%[sdj%]/g;
+            exports.format = function(f) {
+                if (!isString(f)) {
+                    for (var objects = [], i = 0; i < arguments.length; i++) objects.push(inspect(arguments[i]));
+                    return objects.join(" ");
                 }
-                for (n = 1, r = arguments, s = r.length, i = (t + "").replace(P, function(t) {
-                    if ("%%" === t) return "%";
-                    if (n >= s) return t;
-                    switch (t) {
+                for (var i = 1, args = arguments, len = args.length, str = String(f).replace(formatRegExp, function(x) {
+                    if ("%%" === x) return "%";
+                    if (i >= len) return x;
+                    switch (x) {
                       case "%s":
-                        return r[n++] + "";
+                        return String(args[i++]);
 
                       case "%d":
-                        return +r[n++];
+                        return Number(args[i++]);
 
                       case "%j":
                         try {
-                            return JSON.stringify(r[n++]);
-                        } catch (e) {
+                            return JSON.stringify(args[i++]);
+                        } catch (_) {
                             return "[Circular]";
                         }
 
                       default:
-                        return t;
+                        return x;
                     }
-                }), o = r[n]; s > n; o = r[++n]) i += b(o) || !E(o) ? " " + o : " " + a(o);
-                return i;
-            }, n.deprecate = function(t, e) {
-                function r() {
-                    if (!s) {
-                        if (i.throwDeprecation) throw Error(e);
-                        i.traceDeprecation ? console.trace(e) : console.error(e), s = !0;
+                }), x = args[i]; len > i; x = args[++i]) str += isNull(x) || !isObject(x) ? " " + x : " " + inspect(x);
+                return str;
+            }, exports.deprecate = function(fn, msg) {
+                function deprecated() {
+                    if (!warned) {
+                        if (process.throwDeprecation) throw new Error(msg);
+                        process.traceDeprecation ? console.trace(msg) : console.error(msg), warned = !0;
                     }
-                    return t.apply(this, arguments);
+                    return fn.apply(this, arguments);
                 }
-                if (O(o.process)) return function() {
-                    return n.deprecate(t, e).apply(this, arguments);
+                if (isUndefined(global.process)) return function() {
+                    return exports.deprecate(fn, msg).apply(this, arguments);
                 };
-                if (i.noDeprecation === !0) return t;
-                var s = !1;
-                return r;
-            }, q = {}, n.debuglog = function(t) {
-                if (O(T) && (T = i.env.NODE_DEBUG || ""), t = t.toUpperCase(), !q[t]) if (RegExp("\\b" + t + "\\b", "i").test(T)) {
-                    var e = i.pid;
-                    q[t] = function() {
-                        var r = n.format.apply(n, arguments);
-                        console.error("%s %d: %s", t, e, r);
+                if (process.noDeprecation === !0) return fn;
+                var warned = !1;
+                return deprecated;
+            };
+            var debugEnviron, debugs = {};
+            exports.debuglog = function(set) {
+                if (isUndefined(debugEnviron) && (debugEnviron = process.env.NODE_DEBUG || ""), 
+                set = set.toUpperCase(), !debugs[set]) if (new RegExp("\\b" + set + "\\b", "i").test(debugEnviron)) {
+                    var pid = process.pid;
+                    debugs[set] = function() {
+                        var msg = exports.format.apply(exports, arguments);
+                        console.error("%s %d: %s", set, pid, msg);
                     };
-                } else q[t] = function() {};
-                return q[t];
-            }, n.inspect = a, a.colors = {
+                } else debugs[set] = function() {};
+                return debugs[set];
+            }, exports.inspect = inspect, inspect.colors = {
                 bold: [ 1, 22 ],
                 italic: [ 3, 23 ],
                 underline: [ 4, 24 ],
@@ -926,7 +1064,7 @@
                 magenta: [ 35, 39 ],
                 red: [ 31, 39 ],
                 yellow: [ 33, 39 ]
-            }, a.styles = {
+            }, inspect.styles = {
                 special: "cyan",
                 number: "yellow",
                 "boolean": "yellow",
@@ -936,59 +1074,66 @@
                 symbol: "green",
                 date: "magenta",
                 regexp: "red"
-            }, R = n.isArray = Array.isArray, n.isBoolean = y, n.isNull = b, n.isNullOrUndefined = w, 
-            n.isNumber = _, n.isString = j, n.isSymbol = x, n.isUndefined = O, n.isRegExp = A, 
-            n.isObject = E, n.isDate = L, n.isError = S, n.isFunction = C, n.isPrimitive = z, 
-            n.isBuffer = U, F = [ "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" ], 
-            n.log = function() {
-                console.log("%s - %s", I(), n.format.apply(n, arguments));
-            }, n.inherits = function(t, e) {
-                t.super_ = e, t.prototype = Object.create(e.prototype, {
+            };
+            var isArray = exports.isArray = Array.isArray;
+            exports.isBoolean = isBoolean, exports.isNull = isNull, exports.isNullOrUndefined = isNullOrUndefined, 
+            exports.isNumber = isNumber, exports.isString = isString, exports.isSymbol = isSymbol, 
+            exports.isUndefined = isUndefined, exports.isRegExp = isRegExp, exports.isObject = isObject, 
+            exports.isDate = isDate, exports.isError = isError, exports.isFunction = isFunction, 
+            exports.isPrimitive = isPrimitive, exports.isBuffer = isBuffer;
+            var months = [ "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" ];
+            exports.log = function() {
+                console.log("%s - %s", timestamp(), exports.format.apply(exports, arguments));
+            }, exports.inherits = function(ctor, superCtor) {
+                ctor.super_ = superCtor, ctor.prototype = Object.create(superCtor.prototype, {
                     constructor: {
-                        value: t,
+                        value: ctor,
                         enumerable: !1,
                         writable: !0,
                         configurable: !0
                     }
                 });
-            }, n._extend = function(t, e) {
-                var n, r;
-                if (!e || !E(e)) return t;
-                for (n = Object.keys(e), r = n.length; r--; ) t[n[r]] = e[n[r]];
-                return t;
-            }, n.p = n.deprecate(function() {
-                for (var t = 0, e = arguments.length; e > t; ++t) console.error(n.inspect(arguments[t]));
-            }, "util.p: Use console.error() instead"), n.print = n.deprecate(function() {
-                for (var t = 0, e = arguments.length; e > t; ++t) i.stdout.write(arguments[t] + "");
-            }, "util.print: Use console.log instead"), n.puts = n.deprecate(function() {
-                for (var t = 0, e = arguments.length; e > t; ++t) i.stdout.write(arguments[t] + "\n");
-            }, "util.puts: Use console.log instead"), n.debug = n.deprecate(function(t) {
-                i.stderr.write("DEBUG: " + t + "\n");
-            }, "util.debug: Use console.error instead"), n.error = n.deprecate(function() {
-                for (var t = 0, e = arguments.length; e > t; ++t) i.stderr.write(arguments[t] + "\n");
-            }, "util.error: Use console.error instead"), n.pump = n.deprecate(function(t, e, n) {
-                function r(t, e, r) {
-                    n && !s && (n(t, e, r), s = !0);
+            }, exports._extend = function(origin, add) {
+                if (!add || !isObject(add)) return origin;
+                for (var keys = Object.keys(add), i = keys.length; i--; ) origin[keys[i]] = add[keys[i]];
+                return origin;
+            }, exports.p = exports.deprecate(function() {
+                for (var i = 0, len = arguments.length; len > i; ++i) console.error(exports.inspect(arguments[i]));
+            }, "util.p: Use console.error() instead"), exports.print = exports.deprecate(function() {
+                for (var i = 0, len = arguments.length; len > i; ++i) process.stdout.write(String(arguments[i]));
+            }, "util.print: Use console.log instead"), exports.puts = exports.deprecate(function() {
+                for (var i = 0, len = arguments.length; len > i; ++i) process.stdout.write(arguments[i] + "\n");
+            }, "util.puts: Use console.log instead"), exports.debug = exports.deprecate(function(x) {
+                process.stderr.write("DEBUG: " + x + "\n");
+            }, "util.debug: Use console.error instead"), exports.error = exports.deprecate(function(x) {
+                for (var i = 0, len = arguments.length; len > i; ++i) process.stderr.write(arguments[i] + "\n");
+            }, "util.error: Use console.error instead"), exports.pump = exports.deprecate(function(readStream, writeStream, callback) {
+                function call(a, b, c) {
+                    callback && !callbackCalled && (callback(a, b, c), callbackCalled = !0);
                 }
-                var s = !1;
-                t.addListener("data", function(n) {
-                    e.write(n) === !1 && t.pause();
-                }), e.addListener("drain", function() {
-                    t.resume();
-                }), t.addListener("end", function() {
-                    e.end();
-                }), t.addListener("close", function() {
-                    r();
-                }), t.addListener("error", function(t) {
-                    e.end(), r(t);
-                }), e.addListener("error", function(e) {
-                    t.destroy(), r(e);
+                var callbackCalled = !1;
+                readStream.addListener("data", function(chunk) {
+                    writeStream.write(chunk) === !1 && readStream.pause();
+                }), writeStream.addListener("drain", function() {
+                    readStream.resume();
+                }), readStream.addListener("end", function() {
+                    writeStream.end();
+                }), readStream.addListener("close", function() {
+                    call();
+                }), readStream.addListener("error", function(err) {
+                    writeStream.end(), call(err);
+                }), writeStream.addListener("error", function(err) {
+                    readStream.destroy(), call(err);
                 });
-            }, "util.pump(): Use readableStream.pipe() instead"), n._errnoException = function(t, e, n) {
-                var r, s, o;
-                return O(H) && (H = i.binding("uv")), r = H.errname(t), s = e + " " + r, n && (s += " " + n), 
-                o = Error(s), o.code = r, o.errno = r, o.syscall = e, o;
+            }, "util.pump(): Use readableStream.pipe() instead");
+            var uv;
+            exports._errnoException = function(err, syscall, original) {
+                isUndefined(uv) && (uv = process.binding("uv"));
+                var errname = uv.errname(err), message = syscall + " " + errname;
+                original && (message += " " + original);
+                var e = new Error(message);
+                return e.code = errname, e.errno = errname, e.syscall = syscall, e;
             };
         };
-    }), o();
+    }), init();
 }(this);
