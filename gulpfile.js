@@ -1,4 +1,5 @@
 var gulp = require('gulp');
+var gzip = require('gulp-gzip');
 var uglify = require('gulp-uglify');
 var rename = require('gulp-rename');
 var concat = require('gulp-concat');
@@ -9,21 +10,47 @@ var paths = {
 };
 
 gulp.task('scripts', function () {
-	var header = `modules[` + '"${modulename}"' + `] = (function(root) {
+	var header = `define(` + '"${modulename}"' + `, function(root) {
 	var moduleName = ` + '"${modulename}"' + `;
-	var process = {
-		platform: 'unix',
-		_setupDomainUse: function () {}
-	};
+	
+	return function(require, module, exports, __dirname, __filename, process, global) {`;
 
-	return function(require, module, exports, __dirname, __filename) {`;
-
-	var footer = `}; })(this);`;
+	var footer = `};
+	});`;
 
 	var parentHeader = `(function (root) {
 	var modules = {};
-	var global = root;
-	var require = function (moduleName) {
+	var global = {};
+	var process = global.process = {
+		platform: 'unix',
+		_setupDomainUse: function () {},
+		stderr: {
+			write: function () {
+				console.log.apply(console, arguments);
+			}
+		},
+		stdout: {
+			write: function () {
+				console.log.apply(console, arguments);
+			}
+		},
+		noDeprecation: false,
+		throwDeprecation: false,
+		traceDeprecation: false,
+		ENV: {
+			NODE_DEBUG: false
+		},
+		pid: 12345,
+		binding: function () {
+			throw new Error('process.binding is not supported');
+		}
+	};
+
+	function define (moduleName, fn) {
+		modules[moduleName] = fn(root);
+	}
+
+	var require = global.require = function (moduleName) {
 		var moduleObj = (root[moduleName] || modules[moduleName]);
     var exports, module = {};
 
@@ -34,7 +61,7 @@ gulp.task('scripts', function () {
     }
 
 		if(typeof moduleObj === 'function') {
-			moduleObj.apply(moduleObj, [require, module, exports, './', "` + '${filename}' + `"]);
+			moduleObj.apply(moduleObj, [require, module, exports, './', "` + '${filename}' + `", process, global]);
 
 			moduleObj = modules[moduleName] = root[moduleName] = (module.exports || exports);
 		}
@@ -65,8 +92,28 @@ gulp.task('scripts', function () {
 			header: h(parentHeader),
 			footer: parentFooter
 		}))
-		.pipe(uglify())
+		.pipe(uglify({
+			compress: {
+				unsafe: true,
+				dead_code: true,
+				hoist_vars: true
+			}
+		}))
+		.pipe(rename({
+			suffix: '.min'
+		}))
+		.pipe(gulp.dest('dist'))
+		.pipe(uglify({
+			output: {
+				beautify: true
+			}
+		}))
+		.pipe(rename('all.js'))
 		.pipe(gulp.dest('dist'));
+});
+
+gulp.task('watch', function () {
+	gulp.watch('src/**/*.js', ['scripts']);
 });
 
 gulp.task('default', ['watch']);

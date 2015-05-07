@@ -17,19 +17,22 @@
   },
   "homepage": "https://github.com/VictorQueiroz/node-browser#readme",
   "devDependencies": {
-    "esprima": "^2.2.0",
-    "estraverse": "^4.1.0",
-    "event-stream": "^3.3.0",
     "gulp": "^3.8.11",
     "gulp-concat": "^2.5.2",
+    "gulp-gzip": "^1.1.0",
     "gulp-rename": "^1.2.2",
     "gulp-uglify": "^1.2.0",
     "gulp-util": "^3.0.4",
     "gulp-wrapper": "^0.1.5",
-    "jasmine-core": "^2.3.0",
     "karma": "^0.12.31",
-    "karma-jasmine": "^0.3.5",
+    "karma-chrome-launcher": "^0.1.8",
+    "karma-firefox-launcher": "^0.1.4",
+    "karma-ie-launcher": "^0.1.5",
+    "karma-mocha": "^0.1.10",
     "karma-phantomjs-launcher": "^0.1.4",
-    "lodash": "^3.8.0"
+    "karma-should": "0.0.1",
+    "lodash": "^3.8.0",
+    "mocha": "^2.2.4",
+    "should": "^6.0.1"
   }
 }
