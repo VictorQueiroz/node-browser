@@ -27,6 +27,7 @@ if(util.isObject(myObj.location)) {
 ### Available NodeJS modules
 - util
 - path
+- assert
 - punycode
 - querystring
 - domain

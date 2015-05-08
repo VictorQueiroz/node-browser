@@ -21,6 +21,24 @@ gulp.task('scripts', function () {
 	var parentHeader = `(function (root) {
 	var modules = {}, global = {}, resolveds = {};
 
+	if(!Error.hasOwnProperty('captureStackTrace')) {
+		Error.captureStackTrace = function (obj) {
+		  if (Error.prepareStackTrace) {
+		    var frame = {
+		      isEval: function () { return false; },
+		      getFileName: function () { return "filename"; },
+		      getLineNumber: function () { return 1; },
+		      getColumnNumber: function () { return 1; },
+		      getFunctionName: function () { return "functionName" }
+		    };
+
+		    obj.stack = Error.prepareStackTrace(obj, [frame, frame, frame]);
+		  } else {
+		    obj.stack = obj.stack || obj.name || "Error";
+		  }
+		};
+	}
+
 	var require = global.require = function (moduleName) {
 		var moduleObj = (root[moduleName] || modules[moduleName]);
     var exports, module = {};
