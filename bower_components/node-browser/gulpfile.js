@@ -21,26 +21,8 @@ gulp.task('scripts', function () {
 	var parentHeader = `(function (root) {
 	var modules = {}, global = {}, resolveds = {};
 
-	if(!Error.hasOwnProperty('captureStackTrace')) {
-		Error.captureStackTrace = function (obj) {
-		  if (Error.prepareStackTrace) {
-		    var frame = {
-		      isEval: function () { return false; },
-		      getFileName: function () { return "filename"; },
-		      getLineNumber: function () { return 1; },
-		      getColumnNumber: function () { return 1; },
-		      getFunctionName: function () { return "functionName" }
-		    };
-
-		    obj.stack = Error.prepareStackTrace(obj, [frame, frame, frame]);
-		  } else {
-		    obj.stack = obj.stack || obj.name || "Error";
-		  }
-		};
-	}
-
 	var require = global.require = function (moduleName) {
-		var moduleObj = (modules[moduleName]);
+		var moduleObj = (root[moduleName] || modules[moduleName]);
     var exports, module = {};
 
     module.exports = exports = {};
@@ -51,11 +33,8 @@ gulp.task('scripts', function () {
 
 		if((typeof resolveds[moduleName]) === 'undefined') {
 			moduleObj.apply(moduleObj, [require, module, exports, './', "` + '${filename}' + `", process, global]);
-			moduleObj = modules[moduleName] = module.exports;
 
-			if(typeof root[moduleName] === 'undefined') {
-				root[moduleName] = modules[moduleName];
-			}
+			moduleObj = modules[moduleName] = root[moduleName] = module.exports;
 
 			resolveds[moduleName] = true;
 		}

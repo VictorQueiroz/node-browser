@@ -12,7 +12,7 @@ describe('path', function () {
 
 		path.resolve('/foo/bar', './baz').should.be.exactly('/foo/bar/baz');
 		path.resolve('/foo/bar', '/tmp/file/').should.be.exactly('/tmp/file');
-		path.resolve('wwwroot', 'static_files/png/', '../gif/image.gif').should.be.exactly('http:/localhost:9876/context.html/wwwroot/static_files/gif/image.gif');
+		path.resolve('wwwroot', 'static_files/png/', '../gif/image.gif').should.be.exactly('http:/' + window.location.hostname + ':' + window.location.port + '/context.html/wwwroot/static_files/gif/image.gif');
 	});
 
 	it('should determines whether path is an absolute path', function () {

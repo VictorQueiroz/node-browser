@@ -1,6 +1,5 @@
 {
   "name": "node-browser",
-  "version": "1.0.22",
   "homepage": "https://github.com/VictorQueiroz/node-browser",
   "authors": [
     "Victor Queiroz <victorcqueirozg@gmail.com>"
@@ -15,5 +14,15 @@
     "bower_components",
     "test",
     "tests"
-  ]
+  ],
+  "_release": "c0d48e9b2f",
+  "_resolution": {
+    "type": "branch",
+    "branch": "master",
+    "commit": "c0d48e9b2f991f2c5d81a33e2f951f31e9a6905f"
+  },
+  "_source": "git://github.com/VictorQueiroz/node-browser.git",
+  "_target": "master",
+  "_originalSource": "node-browser",
+  "_direct": true
 }

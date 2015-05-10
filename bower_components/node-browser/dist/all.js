@@ -2,35 +2,12 @@
     function define(moduleName, fn) {
         modules[moduleName] = fn(root);
     }
-    var modules = {}, global = {}, resolveds = {};
-    Error.hasOwnProperty("captureStackTrace") || (Error.captureStackTrace = function(obj) {
-        if (Error.prepareStackTrace) {
-            var frame = {
-                isEval: function() {
-                    return !1;
-                },
-                getFileName: function() {
-                    return "filename";
-                },
-                getLineNumber: function() {
-                    return 1;
-                },
-                getColumnNumber: function() {
-                    return 1;
-                },
-                getFunctionName: function() {
-                    return "functionName";
-                }
-            };
-            obj.stack = Error.prepareStackTrace(obj, [ frame, frame, frame ]);
-        } else obj.stack = obj.stack || obj.name || "Error";
-    });
-    var require = global.require = function(moduleName) {
-        var exports, moduleObj = modules[moduleName], module = {};
+    var modules = {}, global = {}, resolveds = {}, require = global.require = function(moduleName) {
+        var exports, moduleObj = root[moduleName] || modules[moduleName], module = {};
         if (module.exports = exports = {}, "undefined" == typeof moduleObj) throw new Error("module named " + moduleName + " does not exist");
         return "undefined" == typeof resolveds[moduleName] && (moduleObj.apply(moduleObj, [ require, module, exports, "./", "all.js", process, global ]), 
-        moduleObj = modules[moduleName] = module.exports, "undefined" == typeof root[moduleName] && (root[moduleName] = modules[moduleName]), 
-        resolveds[moduleName] = !0), moduleObj;
+        moduleObj = modules[moduleName] = root[moduleName] = module.exports, resolveds[moduleName] = !0), 
+        moduleObj;
     }, process = global.process = {
         platform: "unix",
         _setupDomainUse: function() {},
@@ -60,97 +37,7 @@
     }, init = function() {
         Object.keys(modules).forEach(require, this);
     };
-    define("assert", function(root) {
-        return function(require, module, exports, __dirname, __filename, process, global) {
-            "use strict";
-            function truncate(s, n) {
-                return "string" == typeof s ? s.length < n ? s : s.slice(0, n) : s;
-            }
-            function getMessage(self) {
-                return truncate(util.inspect(self.actual), 128) + " " + self.operator + " " + truncate(util.inspect(self.expected), 128);
-            }
-            function fail(actual, expected, message, operator, stackStartFunction) {
-                throw new assert.AssertionError({
-                    message: message,
-                    actual: actual,
-                    expected: expected,
-                    operator: operator,
-                    stackStartFunction: stackStartFunction
-                });
-            }
-            function ok(value, message) {
-                value || fail(value, !0, message, "==", assert.ok);
-            }
-            function _deepEqual(actual, expected, strict) {
-                return actual === expected ? !0 : util.isDate(actual) && util.isDate(expected) ? actual.getTime() === expected.getTime() : util.isRegExp(actual) && util.isRegExp(expected) ? actual.source === expected.source && actual.global === expected.global && actual.multiline === expected.multiline && actual.lastIndex === expected.lastIndex && actual.ignoreCase === expected.ignoreCase : null !== actual && "object" == typeof actual || null !== expected && "object" == typeof expected ? objEquiv(actual, expected, strict) : strict ? actual === expected : actual == expected;
-            }
-            function isArguments(object) {
-                return "[object Arguments]" == Object.prototype.toString.call(object);
-            }
-            function objEquiv(a, b, strict) {
-                if (null === a || void 0 === a || null === b || void 0 === b) return !1;
-                if (util.isPrimitive(a) || util.isPrimitive(b)) return a === b;
-                if (strict && Object.getPrototypeOf(a) !== Object.getPrototypeOf(b)) return !1;
-                var aIsArgs = isArguments(a), bIsArgs = isArguments(b);
-                if (aIsArgs && !bIsArgs || !aIsArgs && bIsArgs) return !1;
-                if (aIsArgs) return a = pSlice.call(a), b = pSlice.call(b), _deepEqual(a, b, strict);
-                var key, i, ka = Object.keys(a), kb = Object.keys(b);
-                if (ka.length !== kb.length) return !1;
-                for (ka.sort(), kb.sort(), i = ka.length - 1; i >= 0; i--) if (ka[i] !== kb[i]) return !1;
-                for (i = ka.length - 1; i >= 0; i--) if (key = ka[i], !_deepEqual(a[key], b[key], strict)) return !1;
-                return !0;
-            }
-            function notDeepStrictEqual(actual, expected, message) {
-                _deepEqual(actual, expected, !0) && fail(actual, expected, message, "notDeepStrictEqual", notDeepStrictEqual);
-            }
-            function expectedException(actual, expected) {
-                return actual && expected ? "[object RegExp]" == Object.prototype.toString.call(expected) ? expected.test(actual) : actual instanceof expected ? !0 : expected.call({}, actual) === !0 ? !0 : !1 : !1;
-            }
-            function _throws(shouldThrow, block, expected, message) {
-                var actual;
-                if ("function" != typeof block) throw new TypeError("block must be a function");
-                "string" == typeof expected && (message = expected, expected = null);
-                try {
-                    block();
-                } catch (e) {
-                    actual = e;
-                }
-                if (message = (expected && expected.name ? " (" + expected.name + ")." : ".") + (message ? " " + message : "."), 
-                shouldThrow && !actual && fail(actual, expected, "Missing expected exception" + message), 
-                !shouldThrow && expectedException(actual, expected) && fail(actual, expected, "Got unwanted exception" + message), 
-                shouldThrow && actual && expected && !expectedException(actual, expected) || !shouldThrow && actual) throw actual;
-            }
-            var util = require("util"), pSlice = Array.prototype.slice, assert = module.exports = ok;
-            assert.AssertionError = function(options) {
-                this.name = "AssertionError", this.actual = options.actual, this.expected = options.expected, 
-                this.operator = options.operator, options.message ? (this.message = options.message, 
-                this.generatedMessage = !1) : (this.message = getMessage(this), this.generatedMessage = !0);
-                var stackStartFunction = options.stackStartFunction || fail;
-                Error.captureStackTrace(this, stackStartFunction);
-            }, util.inherits(assert.AssertionError, Error), assert.fail = fail, assert.ok = ok, 
-            assert.equal = function(actual, expected, message) {
-                actual != expected && fail(actual, expected, message, "==", assert.equal);
-            }, assert.notEqual = function(actual, expected, message) {
-                actual == expected && fail(actual, expected, message, "!=", assert.notEqual);
-            }, assert.deepEqual = function(actual, expected, message) {
-                _deepEqual(actual, expected, !1) || fail(actual, expected, message, "deepEqual", assert.deepEqual);
-            }, assert.deepStrictEqual = function(actual, expected, message) {
-                _deepEqual(actual, expected, !0) || fail(actual, expected, message, "deepStrictEqual", assert.deepStrictEqual);
-            }, assert.notDeepEqual = function(actual, expected, message) {
-                _deepEqual(actual, expected, !1) && fail(actual, expected, message, "notDeepEqual", assert.notDeepEqual);
-            }, assert.notDeepStrictEqual = notDeepStrictEqual, assert.strictEqual = function(actual, expected, message) {
-                actual !== expected && fail(actual, expected, message, "===", assert.strictEqual);
-            }, assert.notStrictEqual = function(actual, expected, message) {
-                actual === expected && fail(actual, expected, message, "!==", assert.notStrictEqual);
-            }, assert["throws"] = function(block, error, message) {
-                _throws.apply(this, [ !0 ].concat(pSlice.call(arguments)));
-            }, assert.doesNotThrow = function(block, message) {
-                _throws.apply(this, [ !1 ].concat(pSlice.call(arguments)));
-            }, assert.ifError = function(err) {
-                if (err) throw err;
-            };
-        };
-    }), define("domain", function(root) {
+    define("domain", function(root) {
         return function(require, module, exports, __dirname, __filename, process, global) {
             "use strict";
             function Domain() {
