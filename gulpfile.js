@@ -13,13 +13,17 @@ gulp.task('scripts', function () {
 	var header = `define(` + '"${modulename}"' + `, function(root) {
 	var moduleName = ` + '"${modulename}"' + `;
 	
-	return function(require, module, exports, __dirname, __filename, process, global) {`;
+	return function(module, exports) {`;
 
 	var footer = `};
 	});`;
 
 	var parentHeader = `(function (root) {
-	var modules = {}, global = {}, resolveds = {};
+	var modules = {}, global = {};
+
+	var isUndefined = function (variable) {
+		return (typeof variable === 'undefined');
+	};
 
 	if(!Error.hasOwnProperty('captureStackTrace')) {
 		Error.captureStackTrace = function (obj) {
@@ -40,31 +44,27 @@ gulp.task('scripts', function () {
 	}
 
 	var require = global.require = function (moduleName) {
-		var moduleObj = (modules[moduleName]);
-    var exports, module = {};
+		var module = modules[moduleName];
 
-    module.exports = exports = {};
-
-    if(typeof moduleObj === 'undefined') {
+    if(isUndefined(module.exports)) {
     	throw new Error('module named ' + moduleName + ' does not exist');
     }
 
-		if((typeof resolveds[moduleName]) === 'undefined') {
-			moduleObj.apply(moduleObj, [require, module, exports, './', "` + '${filename}' + `", process, global]);
-			moduleObj = modules[moduleName] = module.exports;
+		if(!module.loaded) {
+			module.exports.apply(module, [module, module.exports]);
 
-			if(typeof root[moduleName] === 'undefined') {
-				root[moduleName] = modules[moduleName];
+			if(isUndefined(root[moduleName])) {
+				root[moduleName] = module.exports;
 			}
 
-			resolveds[moduleName] = true;
+			module.loaded = true;
 		}
 
-		return moduleObj;
+		return module.exports;
 	};
 
 	var process = global.process = {
-		platform: 'unix',
+		platform: 'linux',
 		_setupDomainUse: function () {},
 		stderr: {
 			write: function () {
@@ -93,7 +93,15 @@ gulp.task('scripts', function () {
 	};
 
 	function define (moduleName, fn) {
-		modules[moduleName] = fn(root);
+		modules[moduleName] = {
+			id: moduleName,
+			filename: moduleName,
+			loaded: false,
+			exports: fn(root),
+			require: require,
+			parent: [],
+			children: []
+		};
 	}
 
 	var init = function () {

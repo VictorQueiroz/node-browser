@@ -1,8 +1,18 @@
 !function(root) {
     function define(moduleName, fn) {
-        modules[moduleName] = fn(root);
+        modules[moduleName] = {
+            id: moduleName,
+            filename: moduleName,
+            loaded: !1,
+            exports: fn(root),
+            require: require,
+            parent: [],
+            children: []
+        };
     }
-    var modules = {}, global = {}, resolveds = {};
+    var modules = {}, global = {}, isUndefined = function(variable) {
+        return "undefined" == typeof variable;
+    };
     Error.hasOwnProperty("captureStackTrace") || (Error.captureStackTrace = function(obj) {
         if (Error.prepareStackTrace) {
             var frame = {
@@ -26,13 +36,13 @@
         } else obj.stack = obj.stack || obj.name || "Error";
     });
     var require = global.require = function(moduleName) {
-        var exports, moduleObj = modules[moduleName], module = {};
-        if (module.exports = exports = {}, "undefined" == typeof moduleObj) throw new Error("module named " + moduleName + " does not exist");
-        return "undefined" == typeof resolveds[moduleName] && (moduleObj.apply(moduleObj, [ require, module, exports, "./", "all.js", process, global ]), 
-        moduleObj = modules[moduleName] = module.exports, "undefined" == typeof root[moduleName] && (root[moduleName] = modules[moduleName]), 
-        resolveds[moduleName] = !0), moduleObj;
+        var module = modules[moduleName];
+        if (isUndefined(module.exports)) throw new Error("module named " + moduleName + " does not exist");
+        return module.loaded || (module.exports.apply(module, [ module, module.exports ]), 
+        isUndefined(root[moduleName]) && (root[moduleName] = module.exports), module.loaded = !0), 
+        module.exports;
     }, process = global.process = {
-        platform: "unix",
+        platform: "linux",
         _setupDomainUse: function() {},
         stderr: {
             write: function() {
@@ -61,7 +71,7 @@
         Object.keys(modules).forEach(require, this);
     };
     define("assert", function(root) {
-        return function(require, module, exports, __dirname, __filename, process, global) {
+        return function(module, exports) {
             "use strict";
             function truncate(s, n) {
                 return "string" == typeof s ? s.length < n ? s : s.slice(0, n) : s;
@@ -151,7 +161,7 @@
             };
         };
     }), define("domain", function(root) {
-        return function(require, module, exports, __dirname, __filename, process, global) {
+        return function(module, exports) {
             "use strict";
             function Domain() {
                 EventEmitter.call(this), this.members = [];
@@ -249,7 +259,7 @@
             });
         };
     }), define("events", function(root) {
-        return function(require, module, exports, __dirname, __filename, process, global) {
+        return function(module, exports) {
             "use strict";
             function EventEmitter() {
                 EventEmitter.init.call(this);
@@ -350,7 +360,7 @@
             };
         };
     }), define("path", function(root) {
-        return function(require, module, exports, __dirname, __filename, process, global) {
+        return function(module, exports) {
             "use strict";
             function normalizeArray(parts, allowAboveRoot) {
                 for (var res = [], i = 0; i < parts.length; i++) {
@@ -519,7 +529,7 @@
             module.exports.posix = posix, module.exports.win32 = win32;
         };
     }), define("punycode", function(root) {
-        return function(require, module, exports, __dirname, __filename, process, global) {
+        return function(module, exports) {
             !function(root) {
                 function error(type) {
                     throw RangeError(errors[type]);
@@ -622,7 +632,7 @@
             }(this);
         };
     }), define("querystring", function(root) {
-        return function(require, module, exports, __dirname, __filename, process, global) {
+        return function(module, exports) {
             "use strict";
             function hasOwnProperty(obj, prop) {
                 return Object.prototype.hasOwnProperty.call(obj, prop);
@@ -721,7 +731,7 @@
             };
         };
     }), define("url", function(root) {
-        return function(require, module, exports, __dirname, __filename, process, global) {
+        return function(module, exports) {
             "use strict";
             function Url() {
                 this.protocol = null, this.slashes = null, this.auth = null, this.host = null, this.port = null, 
@@ -937,7 +947,7 @@
             };
         };
     }), define("util", function(root) {
-        return function(require, module, exports, __dirname, __filename, process, global) {
+        return function(module, exports) {
             "use strict";
             function inspect(obj, opts) {
                 var ctx = {
