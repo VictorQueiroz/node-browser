@@ -53,6 +53,10 @@ gulp.task('scripts', function () {
 		if(!module.loaded) {
 			module.exports.apply(module, [module, module.exports]);
 
+			if(moduleName === 'punycode') {
+				module.exports = module.punycode;
+			}
+	
 			if(isUndefined(root[moduleName])) {
 				root[moduleName] = module.exports;
 			}
@@ -87,7 +91,6 @@ gulp.task('scripts', function () {
 			throw new Error('process.binding is not supported');
 		},
 		cwd: function () {
-
 			return window.location.href;
 		}
 	};
@@ -105,7 +108,9 @@ gulp.task('scripts', function () {
 	}
 
 	var init = function () {
-		Object.keys(modules).forEach(require, this);
+		Object.keys(modules).forEach(function (moduleName) {
+			require(moduleName);
+		}, this);
 	};`;
 	var parentFooter = `init(); })(this);`;
 

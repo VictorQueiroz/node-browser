@@ -39,8 +39,8 @@
         var module = modules[moduleName];
         if (isUndefined(module.exports)) throw new Error("module named " + moduleName + " does not exist");
         return module.loaded || (module.exports.apply(module, [ module, module.exports ]), 
-        isUndefined(root[moduleName]) && (root[moduleName] = module.exports), module.loaded = !0), 
-        module.exports;
+        "punycode" === moduleName && (module.exports = module.punycode), isUndefined(root[moduleName]) && (root[moduleName] = module.exports), 
+        module.loaded = !0), module.exports;
     }, process = global.process = {
         platform: "linux",
         _setupDomainUse: function() {},
@@ -68,7 +68,9 @@
             return window.location.href;
         }
     }, init = function() {
-        Object.keys(modules).forEach(require, this);
+        Object.keys(modules).forEach(function(moduleName) {
+            require(moduleName);
+        }, this);
     };
     define("assert", function(root) {
         return function(module, exports) {
